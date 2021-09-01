@@ -16,6 +16,62 @@
 #include <mbgl/util/image.hpp>
 #include <mbgl/util/run_loop.hpp>
 
+class GoMapObserver : public mbgl::MapObserver {
+public:
+  GoMapObserver(void *ctx_) : ctx(ctx_) {}
+
+  virtual void onCameraWillChange(CameraChangeMode) override {}
+  virtual void onCameraIsChanging() override {}
+  virtual void onCameraDidChange(CameraChangeMode) override {}
+  virtual void onWillStartLoadingMap() override {}
+  virtual void onDidFinishLoadingMap() override {}
+  virtual void onDidFailLoadingMap(mbgl::MapLoadError,
+                                   const std::string &) override {}
+  virtual void onWillStartRenderingFrame() override {}
+  virtual void onDidFinishRenderingFrame(RenderFrameStatus) override {}
+  virtual void onWillStartRenderingMap() override {}
+  virtual void onDidFinishRenderingMap(RenderMode) override {}
+  virtual void onDidFinishLoadingStyle() override {}
+  virtual void onSourceChanged(mbgl::style::Source &) override {}
+  virtual void onDidBecomeIdle() override {}
+  virtual void onStyleImageMissing(const std::string &) override {}
+
+  void *ctx;
+};
+
+class GoFileSource : public mbgl::FileSource {
+public:
+  GoFileSource(void *ctx_) : ctx(ctx_) {}
+
+  virtual std::unique_ptr<mbgl::AsyncRequest> request(const mbgl::Resource &,
+                                                      Callback) override {}
+
+  virtual bool canRequest(const mbgl::Resource &) const override {}
+
+  void *ctx;
+};
+
+struct GoFileSourceFactory {
+  GoFileSourceFactory(void *ctx_) : ctx(ctx_) {}
+
+  std::unique_ptr<mbgl::FileSource> operator()(const mbgl::ResourceOptions &) {
+    return nullptr;
+  }
+
+  void *ctx;
+};
+
+class GoMapSnapshotterObserver : public mbgl::MapSnapshotterObserver {
+public:
+  GoMapSnapshotterObserver(void *ctx_) : ctx(ctx_) {}
+
+  virtual void onDidFailLoadingStyle(const std::string &) override {}
+  virtual void onDidFinishLoadingStyle() override {}
+  virtual void onStyleImageMissing(const std::string &) override {}
+
+  void *ctx;
+};
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -57,7 +113,7 @@ struct _mvtssr_headless_frontend_t {
 };
 
 struct _mvtssr_map_observer_t {
-  mbgl::MapObserver obser;
+  std::unique_ptr<mbgl::MapObserver> obser;
 };
 
 struct _mvtssr_map_options_t {
@@ -65,7 +121,7 @@ struct _mvtssr_map_options_t {
 };
 
 struct _mvtssr_file_source_t {
-  mbgl::PassRefPtr<mbgl::FileSource> src;
+  std::shared_ptr<mbgl::FileSource> src;
 };
 
 struct _mvtssr_file_source_manager_t {
@@ -73,17 +129,12 @@ struct _mvtssr_file_source_manager_t {
 };
 
 struct _mvtssr_file_source_factory_t {
-  std::function<std::unique_ptr<mbgl::FileSource>(
-      const mbgl::ResourceOptions &)>
-      func;
+  mbgl::FileSourceType type;
+  GoFileSourceFactory factory;
 };
 
 struct _mvtssr_resource_options_t {
   mbgl::ResourceOptions opt;
-};
-
-struct _mvtssr_style_t {
-  mbgl::style::Style sty;
 };
 
 struct _mvtssr_bound_options_t {
@@ -98,8 +149,21 @@ struct _mvtssr_map_snapshotter_observer_t {
   mbgl::MapSnapshotterObserver obser;
 };
 
+struct _mvtssr_map_t {
+  std::unique_ptr<mbgl::Map> map;
+};
+
 struct _mvtssr_map_snapshotter_t {
   mbgl::MapSnapshotter snap;
+};
+
+struct _mvtssr_map_snapshotter_result_t {
+  void *ctx;
+  std::exception_ptr err;
+  mbgl::PremultipliedImage img;
+  std::vector<std::string> attr;
+  std::function<mbgl::ScreenCoordinate(const mbgl::LatLng &)> point_for;
+  std::function<mbgl::LatLng(const mbgl::ScreenCoordinate &)> latLng_for;
 };
 
 struct _mvtssr_offline_region_metadata_t {
@@ -169,7 +233,7 @@ MVTSSRAPICALL _Bool mvtssr_canonical_tileid_children(
   return true;
 }
 
-MVTSSRAPICALL mvtssr_latlng_t *new_mvtssr_latlng(double lat, double lon) {
+MVTSSRAPICALL mvtssr_latlng_t *mvtssr_new_latlng(double lat, double lon) {
   return new mvtssr_latlng_t{mbgl::LatLng(lat, lon)};
 }
 
@@ -300,7 +364,7 @@ MVTSSRAPICALL _Bool latlng_bounds_contains_intersects(
   return bounds->bounds.intersects(area->bounds);
 }
 
-MVTSSRAPICALL mvtssr_edge_insets_t *new_mvtssr_edge_insets(double t, double l,
+MVTSSRAPICALL mvtssr_edge_insets_t *mvtssr_new_edge_insets(double t, double l,
                                                            double b, double r) {
   return new mvtssr_edge_insets_t{mbgl::EdgeInsets(t, l, b, r)};
 }
@@ -341,8 +405,8 @@ MVTSSRAPICALL void mvtssr_edge_add(mvtssr_edge_insets_t *a,
   a->edge += b->edge;
 }
 
-MVTSSRAPICALL mvtssr_screen_coordinate_t *new_screen_coordinate(double x,
-                                                                double y) {
+MVTSSRAPICALL mvtssr_screen_coordinate_t *
+mvtssr_new_screen_coordinate(double x, double y) {
   return new mvtssr_screen_coordinate_t{mbgl::ScreenCoordinate(x, y)};
 }
 
@@ -361,7 +425,7 @@ mvtssr_screen_coordinate_y(mvtssr_screen_coordinate_t *sc) {
   return sc->sc.y;
 }
 
-MVTSSRAPICALL mvtssr_camera_options_t *new_mvtssr_camera_options() {
+MVTSSRAPICALL mvtssr_camera_options_t *mvtssr_new_camera_options() {
   return new mvtssr_camera_options_t{};
 }
 
@@ -446,6 +510,402 @@ mvtssr_camera_options_get_pitch(mvtssr_camera_options_t *opt) {
   }
   return std::numeric_limits<double>::infinity();
 }
+
+MVTSSRAPICALL
+mvtssr_size_t *mvtssr_new_size(uint32_t width, uint32_t height) {
+  return new mvtssr_size_t{mbgl::Size(width, height)};
+}
+
+MVTSSRAPICALL void mvtssr_size_free(mvtssr_size_t *si) { delete si; }
+
+MVTSSRAPICALL uint32_t mvtssr_size_area(mvtssr_size_t *si) {
+  return si->si.area();
+}
+
+MVTSSRAPICALL float mvtssr_size_aspect_ratio(mvtssr_size_t *si) {
+  return si->si.aspectRatio();
+}
+
+MVTSSRAPICALL _Bool mvtssr_size_is_empty(mvtssr_size_t *si) {
+  return si->si.isEmpty();
+}
+
+MVTSSRAPICALL
+mvtssr_runloop_t *mvtssr_new_runloop() { return new mvtssr_runloop_t{}; }
+
+MVTSSRAPICALL void mvtssr_runloop_free(mvtssr_runloop_t *loop) { delete loop; }
+
+MVTSSRAPICALL
+mvtssr_map_observer_t *mvtssr_null_map_observer() {
+  return new mvtssr_map_observer_t{std::make_unique<mbgl::MapObserver>()};
+}
+
+MVTSSRAPICALL
+mvtssr_map_observer_t *mvtssr_new_map_observer(void *ctx) {
+  return new mvtssr_map_observer_t{
+      std::unique_ptr<mbgl::MapObserver>(new GoMapObserver{ctx})};
+}
+
+MVTSSRAPICALL void mvtssr_map_observer_free(mvtssr_map_observer_t *ob) {
+  delete ob;
+}
+
+MVTSSRAPICALL mvtssr_map_options_t *mvtssr_new_map_options() {
+  return new mvtssr_map_options_t{};
+}
+
+MVTSSRAPICALL void mvtssr_map_options_free(mvtssr_map_options_t *op) {
+  delete op;
+}
+
+MVTSSRAPICALL void mvtssr_map_options_set_map_mode(mvtssr_map_options_t *opt,
+                                                   uint32_t mode) {
+  opt->opt.withMapMode(static_cast<mbgl::MapMode>(mode));
+}
+
+MVTSSRAPICALL void
+mvtssr_map_options_set_constrain_mode(mvtssr_map_options_t *opt,
+                                      uint32_t mode) {
+  opt->opt.withConstrainMode(static_cast<mbgl::ConstrainMode>(mode));
+}
+
+MVTSSRAPICALL void
+mvtssr_map_options_set_viewport_mode(mvtssr_map_options_t *opt, uint32_t mode) {
+  opt->opt.withViewportMode(static_cast<mbgl::ViewportMode>(mode));
+}
+
+MVTSSRAPICALL void
+mvtssr_map_options_set_cross_source_collisions(mvtssr_map_options_t *opt,
+                                               _Bool sc) {
+  opt->opt.withCrossSourceCollisions(sc);
+}
+
+MVTSSRAPICALL void
+mvtssr_map_options_set_north_orientation(mvtssr_map_options_t *opt,
+                                         uint32_t ori) {
+  opt->opt.withNorthOrientation(static_cast<mbgl::NorthOrientation>(ori));
+}
+
+MVTSSRAPICALL void mvtssr_map_options_set_size(mvtssr_map_options_t *opt,
+                                               mvtssr_size_t *si) {
+  opt->opt.withSize(si->si);
+}
+
+MVTSSRAPICALL void mvtssr_map_options_set_pixel_ratio(mvtssr_map_options_t *opt,
+                                                      float ratio) {
+  opt->opt.withPixelRatio(ratio);
+}
+
+MVTSSRAPICALL uint32_t
+mvtssr_map_options_get_map_mode(mvtssr_map_options_t *opt) {
+  return static_cast<uint32_t>(opt->opt.mapMode());
+}
+
+MVTSSRAPICALL uint32_t
+mvtssr_map_options_get_constrain_mode(mvtssr_map_options_t *opt) {
+  return static_cast<uint32_t>(opt->opt.constrainMode());
+}
+
+MVTSSRAPICALL uint32_t
+mvtssr_map_options_get_viewport_mode(mvtssr_map_options_t *opt) {
+  return static_cast<uint32_t>(opt->opt.viewportMode());
+}
+
+MVTSSRAPICALL _Bool
+mvtssr_map_options_get_cross_source_collisions(mvtssr_map_options_t *opt) {
+  return opt->opt.crossSourceCollisions();
+}
+
+MVTSSRAPICALL uint32_t
+mvtssr_map_options_get_north_orientation(mvtssr_map_options_t *opt) {
+  return static_cast<uint32_t>(opt->opt.northOrientation());
+}
+
+MVTSSRAPICALL mvtssr_size_t *
+mvtssr_map_options_get_size(mvtssr_map_options_t *opt) {
+  return new mvtssr_size_t{opt->opt.size()};
+}
+
+MVTSSRAPICALL float
+mvtssr_map_options_get_pixel_ratio(mvtssr_map_options_t *opt) {
+  return opt->opt.pixelRatio();
+}
+
+MVTSSRAPICALL
+mvtssr_file_source_t *mvtssr_new_file_source(void *ctx) {
+  return new mvtssr_file_source_t{std::make_shared<GoFileSource>(ctx)};
+}
+
+MVTSSRAPICALL void mvtssr_file_source_free(mvtssr_file_source_t *s) {
+  delete s;
+}
+
+MVTSSRAPICALL mvtssr_file_source_manager_t *mvtssr_get_file_source_manager() {
+  return new mvtssr_file_source_manager_t{mbgl::FileSourceManager::get()};
+}
+
+MVTSSRAPICALL void
+mvtssr_file_source_manager_free(mvtssr_file_source_manager_t *s) {
+  delete s;
+}
+
+MVTSSRAPICALL void mvtssr_file_source_manager_register_file_source_factory(
+    mvtssr_file_source_manager_t *s, mvtssr_file_source_factory_t *factory) {
+  s->mag->registerFileSourceFactory(factory->type, factory->factory);
+}
+
+MVTSSRAPICALL void mvtssr_file_source_manager_unregister_file_source_factory(
+    mvtssr_file_source_manager_t *s, mvtssr_file_source_factory_t *factory) {
+  s->mag->unRegisterFileSourceFactory(factory->type);
+}
+
+MVTSSRAPICALL
+mvtssr_file_source_factory_t *mvtssr_new_file_source_factory(uint8_t file_type,
+                                                             void *ctx) {
+  return new mvtssr_file_source_factory_t{
+      static_cast<mbgl::FileSourceType>(file_type), GoFileSourceFactory(ctx)};
+}
+
+MVTSSRAPICALL void
+mvtssr_file_source_factory_free(mvtssr_file_source_factory_t *s) {
+  delete s;
+}
+
+MVTSSRAPICALL mvtssr_resource_options_t *mvtssr_new_resource_options() {
+  return new mvtssr_resource_options_t{};
+}
+
+MVTSSRAPICALL void mvtssr_resource_options_free(mvtssr_resource_options_t *op) {
+  delete op;
+}
+
+MVTSSRAPICALL void
+mvtssr_resource_options_set_access_token(mvtssr_resource_options_t *opt,
+                                         const char *token) {
+  opt->opt.withAccessToken(token);
+}
+
+MVTSSRAPICALL void
+mvtssr_resource_options_set_base_url(mvtssr_resource_options_t *opt,
+                                     const char *url) {
+  opt->opt.withBaseURL(std::string(url));
+}
+
+MVTSSRAPICALL void
+mvtssr_resource_options_set_asset_path(mvtssr_resource_options_t *opt,
+                                       const char *path) {
+  opt->opt.withAssetPath(path);
+}
+
+MVTSSRAPICALL void
+mvtssr_resource_options_set_maximum_cache_size(mvtssr_resource_options_t *opt,
+                                               uint64_t size) {
+  opt->opt.withMaximumCacheSize(size);
+}
+
+MVTSSRAPICALL mvtssr_headless_frontend_t *
+mvtssr_new_headless_frontend(mvtssr_size_t *size, float pixelRatio) {
+  return new mvtssr_headless_frontend_t{{size->si, pixelRatio}};
+}
+
+MVTSSRAPICALL void
+mvtssr_headless_frontend_free(mvtssr_headless_frontend_t *op) {
+  delete op;
+}
+
+MVTSSRAPICALL void
+mvtssr_headless_frontend_reset(mvtssr_headless_frontend_t *op) {
+  op->frontend.reset();
+}
+
+MVTSSRAPICALL mvtssr_screen_coordinate_t *
+mvtssr_headless_frontend_pixel_for_latlng(mvtssr_headless_frontend_t *op,
+                                          mvtssr_latlng_t *latlon) {
+  return new mvtssr_screen_coordinate_t{
+      op->frontend.pixelForLatLng(latlon->ll)};
+}
+
+MVTSSRAPICALL mvtssr_latlng_t *
+mvtssr_headless_frontend_latlng_for_pixel(mvtssr_headless_frontend_t *op,
+                                          mvtssr_screen_coordinate_t *coord) {
+  return new mvtssr_latlng_t{op->frontend.latLngForPixel(coord->sc)};
+}
+
+MVTSSRAPICALL void
+mvtssr_headless_frontend_set_size(mvtssr_headless_frontend_t *op,
+                                  mvtssr_size_t *size) {
+  op->frontend.setSize(size->si);
+}
+
+MVTSSRAPICALL mvtssr_size_t *
+mvtssr_headless_frontend_get_size(mvtssr_headless_frontend_t *op) {
+  return new mvtssr_size_t{op->frontend.getSize()};
+}
+
+MVTSSRAPICALL mvtssr_premultiplied_image_t *
+mvtssr_headless_frontend_render(mvtssr_headless_frontend_t *op,
+                                mvtssr_map_t *map) {
+  auto res = op->frontend.render(*map->map);
+  return new mvtssr_premultiplied_image_t{std::move(res.image)};
+}
+
+MVTSSRAPICALL
+mvtssr_map_snapshotter_observer_t *mvtssr_null_map_snapshotter_observer() {
+  return new mvtssr_map_snapshotter_observer_t{};
+}
+
+MVTSSRAPICALL
+mvtssr_map_snapshotter_observer_t *
+mvtssr_new_map_snapshotter_observer(void *ctx) {
+  return new mvtssr_map_snapshotter_observer_t{GoMapSnapshotterObserver(ctx)};
+}
+
+MVTSSRAPICALL void
+mvtssr_map_snapshotter_observer_free(mvtssr_map_snapshotter_observer_t *op) {
+  delete op;
+}
+
+MVTSSRAPICALL mvtssr_map_snapshotter_t *
+mvtssr_new_map_snapshotter(mvtssr_size_t *size, float pixelRatio,
+                           mvtssr_resource_options_t *opts,
+                           mvtssr_map_snapshotter_observer_t *obser) {
+  return new mvtssr_map_snapshotter_t{
+      {size->si, pixelRatio, opts->opt, obser->obser}};
+}
+
+MVTSSRAPICALL void mvtssr_map_snapshotter_free(mvtssr_map_snapshotter_t *snap) {
+  delete snap;
+}
+
+MVTSSRAPICALL void
+mvtssr_map_snapshotter_set_style_url(mvtssr_map_snapshotter_t *snap,
+                                     const char *url) {
+  snap->snap.setStyleURL(url);
+}
+
+MVTSSRAPICALL char *
+mvtssr_map_snapshotter_get_style_url(mvtssr_map_snapshotter_t *snap) {
+  return strdup(snap->snap.getStyleURL().c_str());
+}
+
+MVTSSRAPICALL void
+mvtssr_map_snapshotter_set_style(mvtssr_map_snapshotter_t *snap,
+                                 const char *style) {
+  snap->snap.setStyleJSON(style);
+}
+
+MVTSSRAPICALL char *
+mvtssr_map_snapshotter_get_style(mvtssr_map_snapshotter_t *snap) {
+  return strdup(snap->snap.getStyleJSON().c_str());
+}
+
+MVTSSRAPICALL void
+mvtssr_map_snapshotter_set_size(mvtssr_map_snapshotter_t *snap,
+                                mvtssr_size_t *size) {
+  snap->snap.setSize(size->si);
+}
+
+MVTSSRAPICALL mvtssr_size_t *
+mvtssr_map_snapshotter_get_size(mvtssr_map_snapshotter_t *snap) {
+  return new mvtssr_size_t{snap->snap.getSize()};
+}
+
+MVTSSRAPICALL void
+mvtssr_map_snapshotter_set_camera_options(mvtssr_map_snapshotter_t *snap,
+                                          mvtssr_camera_options_t *opts) {
+  snap->snap.setCameraOptions(opts->opt);
+}
+
+MVTSSRAPICALL mvtssr_camera_options_t *
+mvtssr_map_snapshotter_get_camera_options(mvtssr_map_snapshotter_t *snap) {
+  return new mvtssr_camera_options_t{snap->snap.getCameraOptions()};
+}
+
+MVTSSRAPICALL void
+mvtssr_map_snapshotter_set_region(mvtssr_map_snapshotter_t *snap,
+                                  mvtssr_latlng_bounds_t *bounds) {
+  snap->snap.setRegion(bounds->bounds);
+}
+
+MVTSSRAPICALL mvtssr_latlng_bounds_t *
+mvtssr_map_snapshotter_get_region(mvtssr_map_snapshotter_t *snap) {
+  return new mvtssr_latlng_bounds_t{snap->snap.getRegion()};
+}
+
+MVTSSRAPICALL void
+mvtssr_map_snapshotter_observer_cancel(mvtssr_map_snapshotter_t *snap) {
+  snap->snap.cancel();
+}
+
+void mvtssr_map_snapshotter_result_finish(
+    mvtssr_map_snapshotter_result_t *result) {
+  // TODO
+}
+
+MVTSSRAPICALL void mvtssr_map_snapshotter_observer_snapshot(
+    mvtssr_map_snapshotter_t *snap, mvtssr_map_snapshotter_result_t *result) {
+  snap->snap.snapshot([result](std::exception_ptr e,
+                               mbgl::PremultipliedImage img,
+                               mbgl::MapSnapshotter::Attributions attr,
+                               mbgl::MapSnapshotter::PointForFn p,
+                               mbgl::MapSnapshotter::LatLngForFn l) {
+    result->err = e;
+    result->img = std::move(img);
+    result->attr = attr;
+    result->point_for = p;
+    result->latLng_for = l;
+    mvtssr_map_snapshotter_result_finish(result);
+  });
+}
+
+MVTSSRAPICALL
+mvtssr_map_snapshotter_result_t *mvtssr_new_map_snapshotter_result(void *ctx) {
+  return new mvtssr_map_snapshotter_result_t{ctx};
+}
+
+MVTSSRAPICALL void
+mvtssr_map_snapshotter_result_free(mvtssr_map_snapshotter_result_t *op) {
+  delete op;
+}
+
+MVTSSRAPICALL mvtssr_premultiplied_image_t *
+mvtssr_map_snapshotter_result_get_image(mvtssr_map_snapshotter_result_t *op) {
+  return new mvtssr_premultiplied_image_t{std::move(op->img)};
+}
+
+MVTSSRAPICALL char *
+mvtssr_map_snapshotter_result_get_error(mvtssr_map_snapshotter_result_t *op) {
+  if (op->err != nullptr) {
+    try {
+      std::rethrow_exception(op->err);
+    } catch (std::exception &e) {
+      return strdup(e.what());
+    }
+  }
+  return nullptr;
+}
+
+MVTSSRAPICALL mvtssr_screen_coordinate_t *
+mvtssr_map_snapshotter_result_pixel_for_latlng(
+    mvtssr_map_snapshotter_result_t *op, mvtssr_latlng_t *latlon) {
+  return new mvtssr_screen_coordinate_t{op->point_for(latlon->ll)};
+}
+
+MVTSSRAPICALL mvtssr_latlng_t *mvtssr_map_snapshotter_result_latlng_for_pixel(
+    mvtssr_map_snapshotter_result_t *op, mvtssr_screen_coordinate_t *coord) {
+  return new mvtssr_latlng_t{op->latLng_for(coord->sc)};
+}
+
+MVTSSRAPICALL
+mvtssr_map_t *mvtssr_new_map(mvtssr_headless_frontend_t *fr,
+                             mvtssr_map_observer_t *obser,
+                             mvtssr_map_options_t *opts,
+                             mvtssr_resource_options_t *ropts) {
+  return new mvtssr_map_t{std::make_unique<mbgl::Map>(
+      fr->frontend, *obser->obser, opts->opt, ropts->opt)};
+}
+
+MVTSSRAPICALL void mvtssr_map_free(mvtssr_map_t *m) { delete m; }
 
 #ifdef __cplusplus
 }

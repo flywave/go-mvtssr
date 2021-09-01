@@ -23,6 +23,12 @@ option(MBGL_WITH_RTTI "Compile with runtime type information" OFF)
 option(MBGL_WITH_OPENGL "Build with OpenGL renderer" ON)
 option(MBGL_WITH_WERROR "Make all compilation warnings errors" ON)
 
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../zlib")
+include_directories("${CMAKE_CURRENT_BINARY_DIR}/../zlib")
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../libuv/include/")
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../libjpeg/")
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../libpng/")
+
 add_library(
     mbgl-compiler-options INTERFACE
 )
@@ -1005,4 +1011,12 @@ add_library(
 
 if(MBGL_WITH_PLATFORM_EXTRAS)
     include(${MBGL_WITH_PLATFORM_EXTRAS})
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL Linux)
+    include(${PROJECT_SOURCE_DIR}/platform/linux/linux.cmake)
+elseif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+    include(${PROJECT_SOURCE_DIR}/platform/macos/macos.cmake)
+else()
+    message(FATAL_ERROR "Unsupported target platform: " ${CMAKE_SYSTEM_NAME})
 endif()

@@ -1,6 +1,3 @@
-if(TARGET mbgl-vendor-nunicode)
-    return()
-endif()
 
 add_library(
     mbgl-vendor-nunicode STATIC

@@ -1,0 +1,18 @@
+
+include_directories(${FLYWAVE_INCLUDE_DIRS})
+
+FILE( GLOB mvtssr_SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/*.cc )
+FILE( GLOB mvtssr_HEADER_FILES ${CMAKE_CURRENT_SOURCE_DIR}/*.h )
+
+ADD_LIBRARY(mvtssr STATIC
+            ${mvtssr_HEADER_FILES}
+            ${mvtssr_SOURCE_FILES}
+          )
+
+TARGET_INCLUDE_DIRECTORIES(mvtssr PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>)
+
+SOURCE_GROUP("src" FILES ${mvtssr_SOURCE_FILES})
+SOURCE_GROUP("include" FILES ${mvtssr_HEADER_FILES})
+
+SET_TARGET_PROPERTIES(mvtssr
+                    PROPERTIES PUBLIC_HEADER "${headers}")

@@ -1,5 +1,5 @@
-#ifndef PRONTO_C_API_H
-#define PRONTO_C_API_H
+#ifndef MVTSSR_C_API_H
+#define MVTSSR_C_API_H
 
 #if defined(WIN32) || defined(WINDOWS) || defined(_WIN32) || defined(_WINDOWS)
 #define MVTSSRAPICALL __declspec(dllexport)
@@ -17,4 +17,4 @@ extern "C" {
 }
 #endif
 
-#endif // PRONTO_C_API_H
+#endif // MVTSSR_C_API_H

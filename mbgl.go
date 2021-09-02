@@ -54,3 +54,37 @@ const (
 	Network        FileType = 3
 	ResourceLoader FileType = 4
 )
+
+type CameraChangeMode uint32
+
+const (
+	Immediate CameraChangeMode = 0
+	Animated  CameraChangeMode = 1
+)
+
+type RenderMode uint32
+
+const (
+	Partial RenderMode = 0
+	Full    RenderMode = 1
+)
+
+type MapLoadError uint32
+
+const (
+	StyleParseError MapLoadError = 0
+	StyleLoadError  MapLoadError = 1
+	NotFoundError   MapLoadError = 2
+	UnknownError    MapLoadError = 3
+)
+
+type ReasonError uint8
+
+const (
+	Success    ReasonError = 1
+	NotFound   ReasonError = 2
+	Server     ReasonError = 3
+	Connection ReasonError = 4
+	RateLimit  ReasonError = 5
+	Other      ReasonError = 6
+)

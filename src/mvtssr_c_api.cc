@@ -2,6 +2,7 @@
 
 #include <limits>
 
+#include <mbgl/actor/actor_ref.hpp>
 #include <mbgl/gfx/headless_frontend.hpp>
 #include <mbgl/map/bound_options.hpp>
 #include <mbgl/map/camera.hpp>
@@ -16,46 +17,207 @@
 #include <mbgl/util/image.hpp>
 #include <mbgl/util/run_loop.hpp>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern void goMapObserverOnCameraWillChange(void *ctx, uint32_t mode);
+extern void goMapObserverOnCameraIsChanging(void *ctx);
+extern void goMapObserverOnCameraDidChange(void *ctx, uint32_t mode);
+extern void goMapObserverOnWillStartLoadingMap(void *ctx);
+extern void goMapObserverOnDidFinishLoadingMap(void *ctx);
+extern void goMapObserverOnDidFailLoadingMap(void *ctx, uint32_t err,
+                                             char *errmsg);
+extern void goMapObserverOnWillStartRenderingFrame(void *ctx);
+extern void goMapObserverOnFinishRenderingFrame(void *ctx, uint32_t mode,
+                                                _Bool needsRepaint,
+                                                _Bool placementChanged);
+extern void goMapObserverOnWillStartRenderingMap(void *ctx);
+extern void goMapObserverOnDidFinishRenderingMap(void *ctx, uint32_t mode);
+extern void goMapObserverOnDidFinishLoadingStyle(void *ctx);
+extern void goMapObserverOnStyleImageMissing(void *ctx, char *image);
+extern void goMapObserverOnDidBecomeIdle(void *ctx);
+
+extern void goMapSnapshotterObserverOnDidFailLoadingStyle(void *ctx,
+                                                          char *style);
+extern void goMapSnapshotterObserverOnDidFinishLoadingStyle(void *ctx);
+extern void goMapSnapshotterObserverOnStyleImageMissing(void *ctx, char *image);
+
+extern void goFileSourceLoadAsync(void *ctx, mvtssr_file_source_request_t *req,
+                                  mvtssr_resource_t *res);
+extern void goFileSourcePause(void *ctx);
+extern void goFileSourceResume(void *ctx);
+
+extern mvtssr_file_source_t *
+goFileSourceFactoryCreate(void *ctx, mvtssr_resource_options_t *opt);
+
+extern void goFileSourceFactoryDestory(void *ctx, void *fs);
+
+#ifdef __cplusplus
+}
+#endif
+
 class GoMapObserver : public mbgl::MapObserver {
 public:
   GoMapObserver(void *ctx_) : ctx(ctx_) {}
 
-  virtual void onCameraWillChange(CameraChangeMode) override {}
-  virtual void onCameraIsChanging() override {}
-  virtual void onCameraDidChange(CameraChangeMode) override {}
-  virtual void onWillStartLoadingMap() override {}
-  virtual void onDidFinishLoadingMap() override {}
-  virtual void onDidFailLoadingMap(mbgl::MapLoadError,
-                                   const std::string &) override {}
-  virtual void onWillStartRenderingFrame() override {}
-  virtual void onDidFinishRenderingFrame(RenderFrameStatus) override {}
-  virtual void onWillStartRenderingMap() override {}
-  virtual void onDidFinishRenderingMap(RenderMode) override {}
-  virtual void onDidFinishLoadingStyle() override {}
+  virtual void onCameraWillChange(CameraChangeMode m) override {
+    goMapObserverOnCameraWillChange(ctx, static_cast<uint32_t>(m));
+  }
+
+  virtual void onCameraIsChanging() override {
+    goMapObserverOnCameraIsChanging(ctx);
+  }
+
+  virtual void onCameraDidChange(CameraChangeMode m) override {
+    goMapObserverOnCameraDidChange(ctx, static_cast<uint32_t>(m));
+  }
+
+  virtual void onWillStartLoadingMap() override {
+    goMapObserverOnWillStartLoadingMap(ctx);
+  }
+
+  virtual void onDidFinishLoadingMap() override {
+    goMapObserverOnDidFinishLoadingMap(ctx);
+  }
+
+  virtual void onDidFailLoadingMap(mbgl::MapLoadError e,
+                                   const std::string &msg) override {
+    goMapObserverOnDidFailLoadingMap(ctx, static_cast<uint32_t>(e),
+                                     const_cast<char *>(msg.c_str()));
+  }
+
+  virtual void onWillStartRenderingFrame() override {
+    goMapObserverOnWillStartRenderingFrame(ctx);
+  }
+
+  virtual void onDidFinishRenderingFrame(RenderFrameStatus s) override {
+    goMapObserverOnFinishRenderingFrame(ctx, static_cast<uint32_t>(s.mode),
+                                        s.needsRepaint, s.placementChanged);
+  }
+
+  virtual void onWillStartRenderingMap() override {
+    goMapObserverOnWillStartRenderingMap(ctx);
+  }
+
+  virtual void onDidFinishRenderingMap(RenderMode m) override {
+    goMapObserverOnDidFinishRenderingMap(ctx, static_cast<uint32_t>(m));
+  }
+
+  virtual void onDidFinishLoadingStyle() override {
+    goMapObserverOnDidFinishLoadingStyle(ctx);
+  }
+
   virtual void onSourceChanged(mbgl::style::Source &) override {}
-  virtual void onDidBecomeIdle() override {}
-  virtual void onStyleImageMissing(const std::string &) override {}
+
+  virtual void onDidBecomeIdle() override { goMapObserverOnDidBecomeIdle(ctx); }
+
+  virtual void onStyleImageMissing(const std::string &img) override {
+    goMapObserverOnStyleImageMissing(ctx, const_cast<char *>(img.c_str()));
+  }
 
   void *ctx;
 };
 
+class GoFileSourceRequest final : public mbgl::AsyncRequest {
+public:
+  GoFileSourceRequest(mbgl::FileSource::Callback &&callback);
+  ~GoFileSourceRequest() final;
+
+  void onCancel(std::function<void()> &&callback);
+
+  void setResponse(const mbgl::Response &res);
+
+  mbgl::ActorRef<GoFileSourceRequest> actor();
+
+private:
+  mbgl::FileSource::Callback responseCallback = nullptr;
+  std::function<void()> cancelCallback = nullptr;
+  std::shared_ptr<mbgl::Mailbox> mailbox;
+};
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+struct _mvtssr_file_source_request_t {
+  GoFileSourceRequest *req;
+};
+
+struct _mvtssr_resource_t {
+  mbgl::Resource res;
+};
+
+struct _mvtssr_resource_options_t {
+  mbgl::ResourceOptions opt;
+};
+
+struct _mvtssr_file_source_t {
+  std::unique_ptr<mbgl::FileSource> src;
+};
+
+#ifdef __cplusplus
+}
+#endif
+
+GoFileSourceRequest::GoFileSourceRequest(mbgl::FileSource::Callback &&callback)
+    : responseCallback(callback),
+      mailbox(std::make_shared<mbgl::Mailbox>(*mbgl::Scheduler::GetCurrent())) {
+}
+
+GoFileSourceRequest::~GoFileSourceRequest() {
+  if (cancelCallback) {
+    cancelCallback();
+  }
+  mailbox->close();
+}
+
+void GoFileSourceRequest::onCancel(std::function<void()> &&callback) {
+  cancelCallback = std::move(callback);
+}
+
+void GoFileSourceRequest::setResponse(const mbgl::Response &response) {
+  auto callback = responseCallback;
+  callback(response);
+}
+
+mbgl::ActorRef<GoFileSourceRequest> GoFileSourceRequest::actor() {
+  return mbgl::ActorRef<GoFileSourceRequest>(*this, mailbox);
+}
+
 class GoFileSource : public mbgl::FileSource {
 public:
   GoFileSource(void *ctx_) : ctx(ctx_) {}
+  virtual ~GoFileSource() {
+    goFileSourceFactoryDestory(factory, ctx);
+  }
 
-  virtual std::unique_ptr<mbgl::AsyncRequest> request(const mbgl::Resource &,
-                                                      Callback) override {}
+  std::unique_ptr<mbgl::AsyncRequest> request(const mbgl::Resource &res,
+                                              Callback cb) override {
+    auto req = std::make_unique<GoFileSourceRequest>(std::move(cb));
+    goFileSourceLoadAsync(ctx, new mvtssr_file_source_request_t{req.get()},
+                          new mvtssr_resource_t{res});
+    return req;
+  }
 
-  virtual bool canRequest(const mbgl::Resource &) const override {}
+  bool canRequest(const mbgl::Resource &) const override { return true; }
+
+  void pause() override { goFileSourcePause(ctx); }
+
+  void resume() override { goFileSourceResume(ctx); }
 
   void *ctx;
+  void *factory;
 };
 
 struct GoFileSourceFactory {
   GoFileSourceFactory(void *ctx_) : ctx(ctx_) {}
 
-  std::unique_ptr<mbgl::FileSource> operator()(const mbgl::ResourceOptions &) {
-    return nullptr;
+  std::unique_ptr<mbgl::FileSource>
+  operator()(const mbgl::ResourceOptions &opt) {
+    mvtssr_file_source_t *s = goFileSourceFactoryCreate(
+        ctx, new mvtssr_resource_options_t{opt.clone()});
+    return std::move(s->src);
   }
 
   void *ctx;
@@ -65,9 +227,19 @@ class GoMapSnapshotterObserver : public mbgl::MapSnapshotterObserver {
 public:
   GoMapSnapshotterObserver(void *ctx_) : ctx(ctx_) {}
 
-  virtual void onDidFailLoadingStyle(const std::string &) override {}
-  virtual void onDidFinishLoadingStyle() override {}
-  virtual void onStyleImageMissing(const std::string &) override {}
+  virtual void onDidFailLoadingStyle(const std::string &s) override {
+    goMapSnapshotterObserverOnDidFailLoadingStyle(
+        ctx, const_cast<char *>(s.c_str()));
+  }
+
+  virtual void onDidFinishLoadingStyle() override {
+    goMapSnapshotterObserverOnDidFinishLoadingStyle(ctx);
+  }
+
+  virtual void onStyleImageMissing(const std::string &img) override {
+    goMapSnapshotterObserverOnStyleImageMissing(
+        ctx, const_cast<char *>(img.c_str()));
+  }
 
   void *ctx;
 };
@@ -120,10 +292,6 @@ struct _mvtssr_map_options_t {
   mbgl::MapOptions opt;
 };
 
-struct _mvtssr_file_source_t {
-  std::shared_ptr<mbgl::FileSource> src;
-};
-
 struct _mvtssr_file_source_manager_t {
   mbgl::FileSourceManager *mag;
 };
@@ -133,16 +301,12 @@ struct _mvtssr_file_source_factory_t {
   GoFileSourceFactory factory;
 };
 
-struct _mvtssr_resource_options_t {
-  mbgl::ResourceOptions opt;
+struct _mvtssr_file_source_response_t {
+  mbgl::Response resp;
 };
 
 struct _mvtssr_bound_options_t {
   mbgl::BoundOptions opt;
-};
-
-struct _mvtssr_resource_t {
-  mbgl::Resource res;
 };
 
 struct _mvtssr_map_snapshotter_observer_t {
@@ -536,11 +700,44 @@ MVTSSRAPICALL void mvtssr_map_options_set_pixel_ratio(mvtssr_map_options_t *opt,
 
 MVTSSRAPICALL
 mvtssr_file_source_t *mvtssr_new_file_source(void *ctx) {
-  return new mvtssr_file_source_t{std::make_shared<GoFileSource>(ctx)};
+  return new mvtssr_file_source_t{std::make_unique<GoFileSource>(ctx)};
 }
 
 MVTSSRAPICALL void mvtssr_file_source_free(mvtssr_file_source_t *s) {
   delete s;
+}
+
+MVTSSRAPICALL
+mvtssr_file_source_response_t *mvtssr_new_file_source_response(const char *data,
+                                                               size_t len) {
+  auto resp = mbgl::Response();
+  resp.data = std::make_shared<std::string>(data, len);
+  return new mvtssr_file_source_response_t{resp};
+}
+
+MVTSSRAPICALL
+mvtssr_file_source_response_t *
+mvtssr_new_file_source_error_response(uint8_t code, const char *msg) {
+  auto resp = mbgl::Response();
+  resp.error = std::make_unique<mbgl::Response::Error>(
+      static_cast<mbgl::Response::Error::Reason>(code), msg);
+  return new mvtssr_file_source_response_t{resp};
+}
+
+MVTSSRAPICALL void
+mvtssr_file_source_response_free(mvtssr_file_source_response_t *s) {
+  delete s;
+}
+
+MVTSSRAPICALL void
+mvtssr_file_source_request_free(mvtssr_file_source_request_t *s) {
+  delete s;
+}
+
+MVTSSRAPICALL void
+mvtssr_file_source_request_set_response(mvtssr_file_source_request_t *s,
+                                        mvtssr_file_source_response_t *resp) {
+  s->req->setResponse(std::move(resp->resp));
 }
 
 MVTSSRAPICALL mvtssr_file_source_manager_t *mvtssr_get_file_source_manager() {
@@ -745,8 +942,9 @@ void mvtssr_map_snapshotter_result_finish(
   // TODO
 }
 
-MVTSSRAPICALL void mvtssr_map_snapshotter_snapshot(
-    mvtssr_map_snapshotter_t *snap, mvtssr_map_snapshotter_result_t *result) {
+MVTSSRAPICALL void
+mvtssr_map_snapshotter_snapshot(mvtssr_map_snapshotter_t *snap,
+                                mvtssr_map_snapshotter_result_t *result) {
   snap->snap.snapshot([result](std::exception_ptr e,
                                mbgl::PremultipliedImage img,
                                mbgl::MapSnapshotter::Attributions attr,
@@ -803,7 +1001,7 @@ MVTSSRAPICALL
 mvtssr_style_t *mvtssr_new_style(mvtssr_file_source_t *source,
                                  float pixelRatio) {
   return new mvtssr_style_t{
-      std::make_unique<mbgl::style::Style>(source->src, pixelRatio)};
+      std::make_unique<mbgl::style::Style>(std::move(source->src), pixelRatio)};
 }
 
 MVTSSRAPICALL void mvtssr_style_free(mvtssr_style_t *m) { delete m; }
@@ -814,6 +1012,14 @@ MVTSSRAPICALL char *mvtssr_style_get_json(mvtssr_style_t *m) {
 
 MVTSSRAPICALL char *mvtssr_style_get_url(mvtssr_style_t *m) {
   return strdup(m->st->getURL().c_str());
+}
+
+MVTSSRAPICALL void mvtssr_style_load_json(mvtssr_style_t *m, const char *json) {
+  m->st->loadJSON(json);
+}
+
+MVTSSRAPICALL void mvtssr_style_load_url(mvtssr_style_t *m, const char *url) {
+  m->st->loadURL(url);
 }
 
 MVTSSRAPICALL

@@ -1,3 +1,3 @@
-module github.com/flywave/go-proj
+module github.com/flywave/go-mvtssr
 
 go 1.16

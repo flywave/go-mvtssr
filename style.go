@@ -36,3 +36,15 @@ func (t *Style) GetURL() string {
 	defer C.free(unsafe.Pointer(curl))
 	return C.GoString(curl)
 }
+
+func (t *Style) LoadURL(url string) {
+	curl := C.CString(url)
+	defer C.free(unsafe.Pointer(curl))
+	C.mvtssr_style_load_url(t.m, curl)
+}
+
+func (t *Style) LoadJSON(json string) {
+	cjson := C.CString(json)
+	defer C.free(unsafe.Pointer(cjson))
+	C.mvtssr_style_load_json(t.m, cjson)
+}

@@ -20,7 +20,7 @@ func (t *MapSnapshotter) free() {
 	C.mvtssr_map_snapshotter_free(t.m)
 }
 
-func NewMapSnapshotter(si *Size, pixelRatio float32, opts *ResourceOptions, obser *MapSnapshotterObserver) *MapSnapshotter {
+func NewMapSnapshotter(si *Size, pixelRatio float32, opts *ResourceOptions, obser *NativeMapSnapshotterObserver) *MapSnapshotter {
 	ret := &MapSnapshotter{m: C.mvtssr_new_map_snapshotter(si.m, C.float(pixelRatio), opts.m, obser.m)}
 	runtime.SetFinalizer(ret, (*MapSnapshotter).free)
 	return ret
@@ -91,24 +91,31 @@ func (t *MapSnapshotter) Snapshot() *MapSnapshotterResult {
 	return res
 }
 
-type MapSnapshotterObserver struct {
-	m *C.struct__mvtssr_map_snapshotter_observer_t
+type MapSnapshotterObserver interface {
+	OnDidFailLoadingStyle(style string)
+	OnDidFinishLoadingStyle()
+	OnStyleImageMissing(image string)
 }
 
-func (t *MapSnapshotterObserver) free() {
+type NativeMapSnapshotterObserver struct {
+	m      *C.struct__mvtssr_map_snapshotter_observer_t
+	gobser MapSnapshotterObserver
+}
+
+func (t *NativeMapSnapshotterObserver) free() {
 	C.mvtssr_map_snapshotter_observer_free(t.m)
 }
 
-func NullMapSnapshotterObserver() *MapSnapshotterObserver {
-	ret := &MapSnapshotterObserver{m: C.mvtssr_null_map_snapshotter_observer()}
-	runtime.SetFinalizer(ret, (*MapSnapshotterObserver).free)
+func NullMapSnapshotterObserver() *NativeMapSnapshotterObserver {
+	ret := &NativeMapSnapshotterObserver{m: C.mvtssr_null_map_snapshotter_observer()}
+	runtime.SetFinalizer(ret, (*NativeMapSnapshotterObserver).free)
 	return ret
 }
 
-func NewMapSnapshotterObserver() *MapSnapshotterObserver {
-	ret := &MapSnapshotterObserver{m: nil}
+func NewMapSnapshotterObserver(ob MapSnapshotterObserver) *NativeMapSnapshotterObserver {
+	ret := &NativeMapSnapshotterObserver{m: nil, gobser: ob}
 	ret.m = C.mvtssr_new_map_snapshotter_observer(unsafe.Pointer(ret))
-	runtime.SetFinalizer(ret, (*MapSnapshotterObserver).free)
+	runtime.SetFinalizer(ret, (*NativeMapSnapshotterObserver).free)
 	return ret
 }
 
@@ -155,4 +162,19 @@ func (t *MapSnapshotterResult) LatLngForPixel(sc *ScreenCoordinate) *LatLng {
 	ret := &LatLng{m: C.mvtssr_map_snapshotter_result_latlng_for_pixel(t.m, sc.m)}
 	runtime.SetFinalizer(ret, (*LatLng).free)
 	return ret
+}
+
+//export goMapSnapshotterObserverOnDidFailLoadingStyle
+func goMapSnapshotterObserverOnDidFailLoadingStyle(ctx unsafe.Pointer, style *C.char) {
+	((*NativeMapSnapshotterObserver)(ctx)).gobser.OnDidFailLoadingStyle(C.GoString(style))
+}
+
+//export goMapSnapshotterObserverOnDidFinishLoadingStyle
+func goMapSnapshotterObserverOnDidFinishLoadingStyle(ctx unsafe.Pointer) {
+	((*NativeMapSnapshotterObserver)(ctx)).gobser.OnDidFinishLoadingStyle()
+}
+
+//export goMapSnapshotterObserverOnStyleImageMissing
+func goMapSnapshotterObserverOnStyleImageMissing(ctx unsafe.Pointer, image *C.char) {
+	((*NativeMapSnapshotterObserver)(ctx)).gobser.OnStyleImageMissing(C.GoString(image))
 }

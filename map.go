@@ -12,7 +12,7 @@ type Map struct {
 	m *C.struct__mvtssr_map_t
 }
 
-func NewMap(fr *HeadlessFrontend, obser *MapObserver, opts *MapOptions, ropts *ResourceOptions) *Map {
+func NewMap(fr *HeadlessFrontend, obser *NativeMapObserver, opts *MapOptions, ropts *ResourceOptions) *Map {
 	ret := &Map{m: C.mvtssr_new_map(fr.m, obser.m, opts.m, ropts.m)}
 	runtime.SetFinalizer(ret, (*Map).free)
 	return ret

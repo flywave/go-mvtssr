@@ -32,6 +32,8 @@ typedef struct _mvtssr_style_t mvtssr_style_t;
 typedef struct _mvtssr_bound_options_t mvtssr_bound_options_t;
 typedef struct _mvtssr_resource_t mvtssr_resource_t;
 typedef struct _mvtssr_file_source_factory_t mvtssr_file_source_factory_t;
+typedef struct _mvtssr_file_source_request_t mvtssr_file_source_request_t;
+typedef struct _mvtssr_file_source_response_t mvtssr_file_source_response_t;
 typedef struct _mvtssr_resource_options_t mvtssr_resource_options_t;
 typedef struct _mvtssr_headless_frontend_t mvtssr_headless_frontend_t;
 typedef struct _mvtssr_map_snapshotter_observer_t
@@ -184,6 +186,21 @@ mvtssr_file_source_t *mvtssr_new_file_source(void *ctx);
 MVTSSRAPICALL void mvtssr_file_source_free(mvtssr_file_source_t *s);
 
 MVTSSRAPICALL
+mvtssr_file_source_response_t *mvtssr_new_file_source_response(const char *data,
+                                                               size_t len);
+MVTSSRAPICALL
+mvtssr_file_source_response_t *
+mvtssr_new_file_source_error_response(uint8_t code, const char *msg);
+MVTSSRAPICALL void
+mvtssr_file_source_response_free(mvtssr_file_source_response_t *s);
+
+MVTSSRAPICALL void
+mvtssr_file_source_request_free(mvtssr_file_source_request_t *s);
+MVTSSRAPICALL void
+mvtssr_file_source_request_set_response(mvtssr_file_source_request_t *s,
+                                        mvtssr_file_source_response_t *resp);
+
+MVTSSRAPICALL
 mvtssr_file_source_manager_t *mvtssr_get_file_source_manager();
 MVTSSRAPICALL void
 mvtssr_file_source_manager_free(mvtssr_file_source_manager_t *s);
@@ -277,8 +294,9 @@ MVTSSRAPICALL mvtssr_latlng_bounds_t *
 mvtssr_map_snapshotter_get_region(mvtssr_map_snapshotter_t *snap);
 MVTSSRAPICALL void
 mvtssr_map_snapshotter_cancel(mvtssr_map_snapshotter_t *snap);
-MVTSSRAPICALL void mvtssr_map_snapshotter_snapshot(
-    mvtssr_map_snapshotter_t *snap, mvtssr_map_snapshotter_result_t *result);
+MVTSSRAPICALL void
+mvtssr_map_snapshotter_snapshot(mvtssr_map_snapshotter_t *snap,
+                                mvtssr_map_snapshotter_result_t *result);
 
 MVTSSRAPICALL
 mvtssr_map_snapshotter_result_t *mvtssr_new_map_snapshotter_result(void *ctx);
@@ -300,6 +318,8 @@ mvtssr_style_t *mvtssr_new_style(mvtssr_file_source_t *source,
 MVTSSRAPICALL void mvtssr_style_free(mvtssr_style_t *m);
 MVTSSRAPICALL char *mvtssr_style_get_json(mvtssr_style_t *m);
 MVTSSRAPICALL char *mvtssr_style_get_url(mvtssr_style_t *m);
+MVTSSRAPICALL void mvtssr_style_load_json(mvtssr_style_t *m, const char *json);
+MVTSSRAPICALL void mvtssr_style_load_url(mvtssr_style_t *m, const char *url);
 
 MVTSSRAPICALL
 mvtssr_bound_options_t *mvtssr_new_bound_options();

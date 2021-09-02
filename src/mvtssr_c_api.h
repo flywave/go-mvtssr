@@ -26,6 +26,7 @@ typedef struct _mvtssr_size_t mvtssr_size_t;
 typedef struct _mvtssr_map_observer_t mvtssr_map_observer_t;
 typedef struct _mvtssr_map_options_t mvtssr_map_options_t;
 typedef struct _mvtssr_file_source_t mvtssr_file_source_t;
+typedef struct _mvtssr_unique_file_source_t mvtssr_unique_file_source_t;
 typedef struct _mvtssr_file_source_manager_t mvtssr_file_source_manager_t;
 typedef struct _mvtssr_map_t mvtssr_map_t;
 typedef struct _mvtssr_style_t mvtssr_style_t;
@@ -181,9 +182,15 @@ MVTSSRAPICALL void mvtssr_map_options_set_size(mvtssr_map_options_t *opt,
 MVTSSRAPICALL void mvtssr_map_options_set_pixel_ratio(mvtssr_map_options_t *opt,
                                                       float ratio);
 
-MVTSSRAPICALL
-mvtssr_file_source_t *mvtssr_new_file_source(void *ctx);
 MVTSSRAPICALL void mvtssr_file_source_free(mvtssr_file_source_t *s);
+MVTSSRAPICALL uintptr_t mvtssr_file_source_get_ptr(mvtssr_file_source_t *s);
+
+MVTSSRAPICALL
+mvtssr_unique_file_source_t *mvtssr_new_unique_file_source(void *loader);
+MVTSSRAPICALL void
+mvtssr_file_unique_source_free(mvtssr_unique_file_source_t *s);
+MVTSSRAPICALL uintptr_t
+mvtssr_file_unique_source_get_ptr(mvtssr_unique_file_source_t *s);
 
 MVTSSRAPICALL
 mvtssr_file_source_response_t *mvtssr_new_file_source_response(const char *data,
@@ -208,6 +215,10 @@ MVTSSRAPICALL void mvtssr_file_source_manager_register_file_source_factory(
     mvtssr_file_source_manager_t *s, mvtssr_file_source_factory_t *factory);
 MVTSSRAPICALL void mvtssr_file_source_manager_unregister_file_source_factory(
     mvtssr_file_source_manager_t *s, mvtssr_file_source_factory_t *factory);
+MVTSSRAPICALL mvtssr_file_source_t *
+mvtssr_file_source_manager_get_file_source(mvtssr_file_source_manager_t *s,
+                                           uint8_t file_type,
+                                           mvtssr_resource_options_t *op);
 
 MVTSSRAPICALL
 mvtssr_file_source_factory_t *mvtssr_new_file_source_factory(uint8_t file_type,

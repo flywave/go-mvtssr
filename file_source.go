@@ -11,27 +11,14 @@ import (
 	"unsafe"
 )
 
-type FileLoader interface {
-	LoadAsync(req *FileSourceRequest, res *Resource)
-	Pause()
-	Resume()
-}
-
 type FileSource struct {
-	m      *C.struct__mvtssr_file_source_t
-	loader FileLoader
+	m *C.struct__mvtssr_file_source_t
 }
 
 func (t *FileSource) free() {
 	if t.m != nil {
 		C.mvtssr_file_source_free(t.m)
 	}
-}
-
-func newFileSource(loader FileLoader) *FileSource {
-	ret := &FileSource{m: nil, loader: loader}
-	ret.m = C.mvtssr_new_file_source(unsafe.Pointer(ret))
-	return ret
 }
 
 //export goFileSourceLoadAsync
@@ -41,17 +28,17 @@ func goFileSourceLoadAsync(ctx unsafe.Pointer, req *C.struct__mvtssr_file_source
 
 	fres := &Resource{m: res}
 	runtime.SetFinalizer(fres, (*Resource).free)
-	((*FileSource)(ctx)).loader.LoadAsync(freq, fres)
+	(*(*FileLoader)(ctx)).LoadAsync(freq, fres)
 }
 
 //export goFileSourcePause
 func goFileSourcePause(ctx unsafe.Pointer) {
-	((*FileSource)(ctx)).loader.Pause()
+	(*(*FileLoader)(ctx)).Pause()
 }
 
 //export goFileSourceResume
 func goFileSourceResume(ctx unsafe.Pointer) {
-	((*FileSource)(ctx)).loader.Resume()
+	(*(*FileLoader)(ctx)).Resume()
 }
 
 type FileSourceResponse struct {

@@ -11,39 +11,34 @@ import (
 	"unsafe"
 )
 
+type FileLoader interface {
+	LoadAsync(req *FileSourceRequest, res *Resource)
+	Pause()
+	Resume()
+}
+
 type FileSourceCreater interface {
-	Make(r *ResourceOptions) *FileSource
+	Make(r *ResourceOptions) *C.struct__mvtssr_unique_file_source_t
+}
+
+func newFileSource(loader FileLoader) *C.struct__mvtssr_unique_file_source_t {
+	return C.mvtssr_new_unique_file_source(unsafe.Pointer(&loader))
 }
 
 //export goFileSourceFactoryCreate
-func goFileSourceFactoryCreate(ctx unsafe.Pointer, opt *C.struct__mvtssr_resource_options_t) *C.struct__mvtssr_file_source_t {
+func goFileSourceFactoryCreate(ctx unsafe.Pointer, opt *C.struct__mvtssr_resource_options_t) *C.struct__mvtssr_unique_file_source_t {
 	ropt := &ResourceOptions{m: opt}
 	runtime.SetFinalizer(ropt, (*ResourceOptions).free)
-	fsrc := ((*FileSourceFactory)(ctx)).creater.Make(ropt)
-	m := fsrc.m
-	((*FileSourceFactory)(ctx)).fsmap[uintptr(unsafe.Pointer(m))] = fsrc
-	return m
-}
-
-//export goFileSourceFactoryDestory
-func goFileSourceFactoryDestory(ctx unsafe.Pointer, fs unsafe.Pointer) {
-	maps := ((*FileSourceFactory)(ctx)).fsmap
-	key := uintptr(unsafe.Pointer(fs))
-	if fs, ok := maps[key]; ok {
-		fs.free()
-		delete(maps, key)
-	}
+	fsrc := (*(*FileSourceCreater)(ctx)).Make(ropt)
+	return fsrc
 }
 
 type FileSourceFactory struct {
-	m       *C.struct__mvtssr_file_source_factory_t
-	creater FileSourceCreater
-	fsmap   map[uintptr]*FileSource
+	m *C.struct__mvtssr_file_source_factory_t
 }
 
 func NewFileSourceFactory(tp FileType, creater FileSourceCreater) *FileSourceFactory {
-	ret := &FileSourceFactory{m: nil, creater: creater}
-	ret.m = C.mvtssr_new_file_source_factory(C.uchar(tp), unsafe.Pointer(ret))
+	ret := &FileSourceFactory{m: C.mvtssr_new_file_source_factory(C.uchar(tp), unsafe.Pointer(&creater))}
 	runtime.SetFinalizer(ret, (*FileSourceFactory).free)
 	return ret
 }
@@ -67,8 +62,9 @@ func NewFileSourceManager() *FileSourceManager {
 }
 
 func (t *FileSourceManager) GetFileSource(tp FileType, opt *ResourceOptions) *FileSource {
-	//TODO
-	return nil
+	ret := &FileSource{m: C.mvtssr_file_source_manager_get_file_source(t.m, C.uchar(tp), opt.m)}
+	runtime.SetFinalizer(ret, (*FileSource).free)
+	return ret
 }
 
 func (t *FileSourceManager) Register(f *FileSourceFactory) {

@@ -42,67 +42,73 @@ type MapObserver interface {
 	OnDidBecomeIdle()
 }
 
+func NewObserver(obser MapObserver) *NativeMapObserver {
+	ret := &NativeMapObserver{m: C.mvtssr_new_map_observer(unsafe.Pointer(&obser))}
+	runtime.SetFinalizer(ret, (*NativeMapObserver).free)
+	return ret
+}
+
 //export goMapObserverOnCameraWillChange
 func goMapObserverOnCameraWillChange(ctx unsafe.Pointer, mode C.uint) {
-	((*NativeMapObserver)(ctx)).gobser.OnCameraWillChange((CameraChangeMode)(mode))
+	(*(*MapObserver)(ctx)).OnCameraWillChange((CameraChangeMode)(mode))
 }
 
 //export goMapObserverOnCameraIsChanging
 func goMapObserverOnCameraIsChanging(ctx unsafe.Pointer) {
-	((*NativeMapObserver)(ctx)).gobser.OnCameraIsChanging()
+	(*(*MapObserver)(ctx)).OnCameraIsChanging()
 }
 
 //export goMapObserverOnCameraDidChange
 func goMapObserverOnCameraDidChange(ctx unsafe.Pointer, mode C.uint) {
-	((*NativeMapObserver)(ctx)).gobser.OnCameraDidChange((CameraChangeMode)(mode))
+	(*(*MapObserver)(ctx)).OnCameraDidChange((CameraChangeMode)(mode))
 }
 
 //export goMapObserverOnWillStartLoadingMap
 func goMapObserverOnWillStartLoadingMap(ctx unsafe.Pointer) {
-	((*NativeMapObserver)(ctx)).gobser.OnWillStartLoadingMap()
+	(*(*MapObserver)(ctx)).OnWillStartLoadingMap()
 }
 
 //export goMapObserverOnDidFinishLoadingMap
 func goMapObserverOnDidFinishLoadingMap(ctx unsafe.Pointer) {
-	((*NativeMapObserver)(ctx)).gobser.OnDidFinishLoadingMap()
+	(*(*MapObserver)(ctx)).OnDidFinishLoadingMap()
 }
 
 //export goMapObserverOnDidFailLoadingMap
 func goMapObserverOnDidFailLoadingMap(ctx unsafe.Pointer, err C.uint, errmsg *C.char) {
-	((*NativeMapObserver)(ctx)).gobser.OnDidFailLoadingMap((MapLoadError)(err), C.GoString(errmsg))
+	(*(*MapObserver)(ctx)).OnDidFailLoadingMap((MapLoadError)(err), C.GoString(errmsg))
 }
 
 //export goMapObserverOnWillStartRenderingFrame
 func goMapObserverOnWillStartRenderingFrame(ctx unsafe.Pointer) {
-	((*NativeMapObserver)(ctx)).gobser.OnWillStartRenderingFrame()
+	(*(*MapObserver)(ctx)).OnWillStartRenderingFrame()
 }
 
 //export goMapObserverOnFinishRenderingFrame
 func goMapObserverOnFinishRenderingFrame(ctx unsafe.Pointer, mode C.uint, needsRepaint C.bool, placementChanged C.bool) {
-	((*NativeMapObserver)(ctx)).gobser.OnFinishRenderingFrame((RenderMode)(mode), bool(needsRepaint), bool(placementChanged))
+	(*(*MapObserver)(ctx)).OnFinishRenderingFrame((RenderMode)(mode), bool(needsRepaint), bool(placementChanged))
 }
 
 //export goMapObserverOnWillStartRenderingMap
 func goMapObserverOnWillStartRenderingMap(ctx unsafe.Pointer) {
-	((*NativeMapObserver)(ctx)).gobser.OnWillStartRenderingMap()
+	(*(*MapObserver)(ctx)).OnWillStartRenderingMap()
 }
 
 //export goMapObserverOnDidFinishRenderingMap
 func goMapObserverOnDidFinishRenderingMap(ctx unsafe.Pointer, mode C.uint) {
-	((*NativeMapObserver)(ctx)).gobser.OnDidFinishRenderingMap((RenderMode)(mode))
+	(*(*MapObserver)(ctx)).OnDidFinishRenderingMap((RenderMode)(mode))
 }
 
 //export goMapObserverOnDidFinishLoadingStyle
 func goMapObserverOnDidFinishLoadingStyle(ctx unsafe.Pointer) {
-	((*NativeMapObserver)(ctx)).gobser.OnDidFinishLoadingStyle()
+	(*(*MapObserver)(ctx)).OnDidFinishLoadingStyle()
 }
 
 //export goMapObserverOnStyleImageMissing
 func goMapObserverOnStyleImageMissing(ctx unsafe.Pointer, image *C.char) {
-	((*NativeMapObserver)(ctx)).gobser.OnStyleImageMissing(C.GoString(image))
+	(*(*MapObserver)(ctx)).OnStyleImageMissing(C.GoString(image))
 }
 
 //export goMapObserverOnDidBecomeIdle
 func goMapObserverOnDidBecomeIdle(ctx unsafe.Pointer) {
-	((*NativeMapObserver)(ctx)).gobser.OnDidBecomeIdle()
+	(*(*MapObserver)(ctx)).OnDidBecomeIdle()
 }

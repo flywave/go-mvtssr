@@ -48,10 +48,10 @@ extern void goFileSourceLoadAsync(void *ctx, mvtssr_file_source_request_t *req,
 extern void goFileSourcePause(void *ctx);
 extern void goFileSourceResume(void *ctx);
 
-extern mvtssr_file_source_t *
+extern mvtssr_unique_file_source_t *
 goFileSourceFactoryCreate(void *ctx, mvtssr_resource_options_t *opt);
 
-extern void goFileSourceFactoryDestory(void *ctx, void *fs);
+extern void goMapSnapshotterResultFinish(void *ctx);
 
 #ifdef __cplusplus
 }
@@ -136,6 +136,27 @@ private:
   std::shared_ptr<mbgl::Mailbox> mailbox;
 };
 
+class GoMapSnapshotterObserver : public mbgl::MapSnapshotterObserver {
+public:
+  GoMapSnapshotterObserver(void *ctx_) : ctx(ctx_) {}
+
+  virtual void onDidFailLoadingStyle(const std::string &s) override {
+    goMapSnapshotterObserverOnDidFailLoadingStyle(
+        ctx, const_cast<char *>(s.c_str()));
+  }
+
+  virtual void onDidFinishLoadingStyle() override {
+    goMapSnapshotterObserverOnDidFinishLoadingStyle(ctx);
+  }
+
+  virtual void onStyleImageMissing(const std::string &img) override {
+    goMapSnapshotterObserverOnStyleImageMissing(
+        ctx, const_cast<char *>(img.c_str()));
+  }
+
+  void *ctx;
+};
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -153,6 +174,10 @@ struct _mvtssr_resource_options_t {
 };
 
 struct _mvtssr_file_source_t {
+  std::shared_ptr<mbgl::FileSource> src;
+};
+
+struct _mvtssr_unique_file_source_t {
   std::unique_ptr<mbgl::FileSource> src;
 };
 
@@ -187,27 +212,23 @@ mbgl::ActorRef<GoFileSourceRequest> GoFileSourceRequest::actor() {
 
 class GoFileSource : public mbgl::FileSource {
 public:
-  GoFileSource(void *ctx_) : ctx(ctx_) {}
-  virtual ~GoFileSource() {
-    goFileSourceFactoryDestory(factory, ctx);
-  }
+  GoFileSource(void *loader_) : loader(loader_) {}
 
   std::unique_ptr<mbgl::AsyncRequest> request(const mbgl::Resource &res,
                                               Callback cb) override {
     auto req = std::make_unique<GoFileSourceRequest>(std::move(cb));
-    goFileSourceLoadAsync(ctx, new mvtssr_file_source_request_t{req.get()},
+    goFileSourceLoadAsync(loader, new mvtssr_file_source_request_t{req.get()},
                           new mvtssr_resource_t{res});
     return req;
   }
 
   bool canRequest(const mbgl::Resource &) const override { return true; }
 
-  void pause() override { goFileSourcePause(ctx); }
+  void pause() override { goFileSourcePause(loader); }
 
-  void resume() override { goFileSourceResume(ctx); }
+  void resume() override { goFileSourceResume(loader); }
 
-  void *ctx;
-  void *factory;
+  void *loader;
 };
 
 struct GoFileSourceFactory {
@@ -215,30 +236,11 @@ struct GoFileSourceFactory {
 
   std::unique_ptr<mbgl::FileSource>
   operator()(const mbgl::ResourceOptions &opt) {
-    mvtssr_file_source_t *s = goFileSourceFactoryCreate(
+    mvtssr_unique_file_source_t *s = goFileSourceFactoryCreate(
         ctx, new mvtssr_resource_options_t{opt.clone()});
-    return std::move(s->src);
-  }
-
-  void *ctx;
-};
-
-class GoMapSnapshotterObserver : public mbgl::MapSnapshotterObserver {
-public:
-  GoMapSnapshotterObserver(void *ctx_) : ctx(ctx_) {}
-
-  virtual void onDidFailLoadingStyle(const std::string &s) override {
-    goMapSnapshotterObserverOnDidFailLoadingStyle(
-        ctx, const_cast<char *>(s.c_str()));
-  }
-
-  virtual void onDidFinishLoadingStyle() override {
-    goMapSnapshotterObserverOnDidFinishLoadingStyle(ctx);
-  }
-
-  virtual void onStyleImageMissing(const std::string &img) override {
-    goMapSnapshotterObserverOnStyleImageMissing(
-        ctx, const_cast<char *>(img.c_str()));
+    auto ptr = std::move(s->src);
+    delete s;
+    return std::move(ptr);
   }
 
   void *ctx;
@@ -698,13 +700,28 @@ MVTSSRAPICALL void mvtssr_map_options_set_pixel_ratio(mvtssr_map_options_t *opt,
   opt->opt.withPixelRatio(ratio);
 }
 
-MVTSSRAPICALL
-mvtssr_file_source_t *mvtssr_new_file_source(void *ctx) {
-  return new mvtssr_file_source_t{std::make_unique<GoFileSource>(ctx)};
-}
-
 MVTSSRAPICALL void mvtssr_file_source_free(mvtssr_file_source_t *s) {
   delete s;
+}
+
+MVTSSRAPICALL uintptr_t mvtssr_file_source_get_ptr(mvtssr_file_source_t *s) {
+  return (uintptr_t)(s->src.get());
+}
+
+MVTSSRAPICALL
+mvtssr_unique_file_source_t *mvtssr_new_unique_file_source(void *loader) {
+  return new mvtssr_unique_file_source_t{
+      std::unique_ptr<mbgl::FileSource>(new GoFileSource{loader})};
+}
+
+MVTSSRAPICALL void
+mvtssr_file_unique_source_free(mvtssr_unique_file_source_t *s) {
+  delete s;
+}
+
+MVTSSRAPICALL uintptr_t
+mvtssr_file_unique_source_get_ptr(mvtssr_unique_file_source_t *s) {
+  return (uintptr_t)(s->src.get());
 }
 
 MVTSSRAPICALL
@@ -757,6 +774,15 @@ MVTSSRAPICALL void mvtssr_file_source_manager_register_file_source_factory(
 MVTSSRAPICALL void mvtssr_file_source_manager_unregister_file_source_factory(
     mvtssr_file_source_manager_t *s, mvtssr_file_source_factory_t *factory) {
   s->mag->unRegisterFileSourceFactory(factory->type);
+}
+
+MVTSSRAPICALL mvtssr_file_source_t *
+mvtssr_file_source_manager_get_file_source(mvtssr_file_source_manager_t *s,
+                                           uint8_t file_type,
+                                           mvtssr_resource_options_t *op) {
+  std::shared_ptr<mbgl::FileSource> fs = s->mag->getFileSource(
+      static_cast<mbgl::FileSourceType>(file_type), op->opt);
+  return new mvtssr_file_source_t{fs};
 }
 
 MVTSSRAPICALL
@@ -937,11 +963,6 @@ mvtssr_map_snapshotter_cancel(mvtssr_map_snapshotter_t *snap) {
   snap->snap.cancel();
 }
 
-void mvtssr_map_snapshotter_result_finish(
-    mvtssr_map_snapshotter_result_t *result) {
-  // TODO
-}
-
 MVTSSRAPICALL void
 mvtssr_map_snapshotter_snapshot(mvtssr_map_snapshotter_t *snap,
                                 mvtssr_map_snapshotter_result_t *result) {
@@ -955,7 +976,7 @@ mvtssr_map_snapshotter_snapshot(mvtssr_map_snapshotter_t *snap,
     result->attr = attr;
     result->point_for = p;
     result->latLng_for = l;
-    mvtssr_map_snapshotter_result_finish(result);
+    goMapSnapshotterResultFinish(result->ctx);
   });
 }
 

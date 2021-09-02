@@ -98,8 +98,7 @@ type MapSnapshotterObserver interface {
 }
 
 type NativeMapSnapshotterObserver struct {
-	m      *C.struct__mvtssr_map_snapshotter_observer_t
-	gobser MapSnapshotterObserver
+	m *C.struct__mvtssr_map_snapshotter_observer_t
 }
 
 func (t *NativeMapSnapshotterObserver) free() {
@@ -113,14 +112,14 @@ func NullMapSnapshotterObserver() *NativeMapSnapshotterObserver {
 }
 
 func NewMapSnapshotterObserver(ob MapSnapshotterObserver) *NativeMapSnapshotterObserver {
-	ret := &NativeMapSnapshotterObserver{m: nil, gobser: ob}
-	ret.m = C.mvtssr_new_map_snapshotter_observer(unsafe.Pointer(ret))
+	ret := &NativeMapSnapshotterObserver{m: C.mvtssr_new_map_snapshotter_observer(unsafe.Pointer(&ob))}
 	runtime.SetFinalizer(ret, (*NativeMapSnapshotterObserver).free)
 	return ret
 }
 
 type MapSnapshotterResult struct {
-	m *C.struct__mvtssr_map_snapshotter_result_t
+	m          *C.struct__mvtssr_map_snapshotter_result_t
+	resultchan chan interface{}
 }
 
 func (t *MapSnapshotterResult) free() {
@@ -134,7 +133,12 @@ func NewMapSnapshotterResult() *MapSnapshotterResult {
 	return ret
 }
 
+func (t *MapSnapshotterResult) send() {
+	t.resultchan <- nil
+}
+
 func (t *MapSnapshotterResult) wait() {
+	<-t.resultchan
 }
 
 func (t *MapSnapshotterResult) GetImage() *Image {
@@ -164,17 +168,22 @@ func (t *MapSnapshotterResult) LatLngForPixel(sc *ScreenCoordinate) *LatLng {
 	return ret
 }
 
+//export goMapSnapshotterResultFinish
+func goMapSnapshotterResultFinish(ctx unsafe.Pointer) {
+	((*MapSnapshotterResult)(ctx)).send()
+}
+
 //export goMapSnapshotterObserverOnDidFailLoadingStyle
 func goMapSnapshotterObserverOnDidFailLoadingStyle(ctx unsafe.Pointer, style *C.char) {
-	((*NativeMapSnapshotterObserver)(ctx)).gobser.OnDidFailLoadingStyle(C.GoString(style))
+	(*(*MapSnapshotterObserver)(ctx)).OnDidFailLoadingStyle(C.GoString(style))
 }
 
 //export goMapSnapshotterObserverOnDidFinishLoadingStyle
 func goMapSnapshotterObserverOnDidFinishLoadingStyle(ctx unsafe.Pointer) {
-	((*NativeMapSnapshotterObserver)(ctx)).gobser.OnDidFinishLoadingStyle()
+	(*(*MapSnapshotterObserver)(ctx)).OnDidFinishLoadingStyle()
 }
 
 //export goMapSnapshotterObserverOnStyleImageMissing
 func goMapSnapshotterObserverOnStyleImageMissing(ctx unsafe.Pointer, image *C.char) {
-	((*NativeMapSnapshotterObserver)(ctx)).gobser.OnStyleImageMissing(C.GoString(image))
+	(*(*MapSnapshotterObserver)(ctx)).OnStyleImageMissing(C.GoString(image))
 }

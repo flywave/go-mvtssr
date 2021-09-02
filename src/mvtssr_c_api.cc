@@ -153,6 +153,10 @@ struct _mvtssr_map_t {
   std::unique_ptr<mbgl::Map> map;
 };
 
+struct _mvtssr_style_t {
+  std::unique_ptr<mbgl::style::Style> st;
+};
+
 struct _mvtssr_map_snapshotter_t {
   mbgl::MapSnapshotter snap;
 };
@@ -166,32 +170,8 @@ struct _mvtssr_map_snapshotter_result_t {
   std::function<mbgl::LatLng(const mbgl::ScreenCoordinate &)> latLng_for;
 };
 
-struct _mvtssr_offline_region_metadata_t {
-  mbgl::OfflineRegionMetadata md;
-};
-
-struct _mvtssr_offline_region_status_t {
-  mbgl::OfflineRegionStatus status;
-};
-
-struct _mvtssr_offline_region_observer_t {
-  mbgl::OfflineRegionObserver obser;
-};
-
-struct _mvtssr_offline_region_definition_t {
-  mbgl::OfflineRegionDefinition def;
-};
-
-struct _mvtssr_offline_region_t {
-  mbgl::OfflineRegion region;
-};
-
 struct _mvtssr_premultiplied_image_t {
   mbgl::PremultipliedImage img;
-};
-
-struct _mvtssr_unassociatedImage_image_t {
-  mbgl::UnassociatedImage img;
 };
 
 MVTSSRAPICALL mvtssr_canonical_tileid_t *
@@ -897,6 +877,58 @@ MVTSSRAPICALL mvtssr_latlng_t *mvtssr_map_snapshotter_result_latlng_for_pixel(
 }
 
 MVTSSRAPICALL
+mvtssr_style_t *mvtssr_new_style(mvtssr_file_source_t *source,
+                                 float pixelRatio) {
+  return new mvtssr_style_t{
+      std::make_unique<mbgl::style::Style>(source->src, pixelRatio)};
+}
+
+MVTSSRAPICALL void mvtssr_style_free(mvtssr_style_t *m) { delete m; }
+
+MVTSSRAPICALL char *mvtssr_style_get_json(mvtssr_style_t *m) {
+  return strdup(m->st->getJSON().c_str());
+}
+
+MVTSSRAPICALL char *mvtssr_style_get_url(mvtssr_style_t *m) {
+  return strdup(m->st->getURL().c_str());
+}
+
+MVTSSRAPICALL
+mvtssr_bound_options_t *mvtssr_new_bound_options() {
+  return new mvtssr_bound_options_t{};
+}
+
+MVTSSRAPICALL void mvtssr_bound_options_free(mvtssr_bound_options_t *m) {
+  delete m;
+}
+
+MVTSSRAPICALL void
+mvtssr_bound_options_set_bounds(mvtssr_bound_options_t *opt,
+                                mvtssr_latlng_bounds_t *bounds) {
+  opt->opt.bounds = bounds->bounds;
+}
+
+MVTSSRAPICALL void mvtssr_bound_options_set_min_zoom(mvtssr_bound_options_t *m,
+                                                     double z) {
+  m->opt.minZoom = z;
+}
+
+MVTSSRAPICALL void mvtssr_bound_options_set_max_zoom(mvtssr_bound_options_t *m,
+                                                     double z) {
+  m->opt.maxZoom = z;
+}
+
+MVTSSRAPICALL void mvtssr_bound_options_set_min_pitch(mvtssr_bound_options_t *m,
+                                                      double z) {
+  m->opt.minPitch = z;
+}
+
+MVTSSRAPICALL void mvtssr_bound_options_set_max_pitch(mvtssr_bound_options_t *m,
+                                                      double z) {
+  m->opt.maxPitch = z;
+}
+
+MVTSSRAPICALL
 mvtssr_map_t *mvtssr_new_map(mvtssr_headless_frontend_t *fr,
                              mvtssr_map_observer_t *obser,
                              mvtssr_map_options_t *opts,
@@ -906,6 +938,178 @@ mvtssr_map_t *mvtssr_new_map(mvtssr_headless_frontend_t *fr,
 }
 
 MVTSSRAPICALL void mvtssr_map_free(mvtssr_map_t *m) { delete m; }
+
+MVTSSRAPICALL void mvtssr_map_set_style(mvtssr_map_t *m, mvtssr_style_t *s) {
+  m->map->setStyle(std::move(s->st));
+}
+
+MVTSSRAPICALL mvtssr_camera_options_t *
+mvtssr_map_camera_options(mvtssr_map_t *m, mvtssr_edge_insets_t *e) {
+  return new mvtssr_camera_options_t{m->map->getCameraOptions()};
+}
+
+MVTSSRAPICALL void mvtssr_map_jump_to(mvtssr_map_t *m,
+                                      mvtssr_camera_options_t *opt) {
+  m->map->jumpTo(opt->opt);
+}
+
+MVTSSRAPICALL mvtssr_camera_options_t *mvtssr_map_camera_for_latlng_bounds(
+    mvtssr_map_t *m, mvtssr_latlng_bounds_t *bounds, mvtssr_edge_insets_t *e,
+    double *bearing, double *pitch) {
+  return new mvtssr_camera_options_t{m->map->cameraForLatLngBounds(
+      bounds->bounds, e->edge,
+      bearing != nullptr ? *bearing : mbgl::optional<double>{},
+      pitch != nullptr ? *pitch : mbgl::optional<double>{})};
+}
+
+MVTSSRAPICALL mvtssr_latlng_bounds_t *
+mvtssr_map_camera_latlng_bounds_for_camera(mvtssr_map_t *m,
+                                           mvtssr_camera_options_t *opt) {
+  m->map->latLngBoundsForCamera(opt->opt);
+}
+
+MVTSSRAPICALL mvtssr_latlng_bounds_t *
+mvtssr_map_camera_latlng_bounds_for_camera_unwrapped(
+    mvtssr_map_t *m, mvtssr_camera_options_t *opt) {
+  m->map->latLngBoundsForCameraUnwrapped(opt->opt);
+}
+
+MVTSSRAPICALL void mvtssr_map_set_bounds(mvtssr_map_t *m,
+                                         mvtssr_bound_options_t *opts) {
+  m->map->setBounds(opts->opt);
+}
+
+MVTSSRAPICALL mvtssr_bound_options_t *mvtssr_map_get_bounds(mvtssr_map_t *m) {
+  return new mvtssr_bound_options_t{m->map->getBounds()};
+}
+
+MVTSSRAPICALL void mvtssr_map_set_north_orientation(mvtssr_map_t *m,
+                                                    uint32_t ori) {
+  m->map->setNorthOrientation(static_cast<mbgl::NorthOrientation>(ori));
+}
+
+MVTSSRAPICALL void mvtssr_map_set_constrain_mode(mvtssr_map_t *m,
+                                                 uint32_t mode) {
+  m->map->setConstrainMode(static_cast<mbgl::ConstrainMode>(mode));
+}
+
+MVTSSRAPICALL void mvtssr_map_set_viewport_mode(mvtssr_map_t *m,
+                                                uint32_t mode) {
+  m->map->setViewportMode(static_cast<mbgl::ViewportMode>(mode));
+}
+
+MVTSSRAPICALL void mvtssr_map_set_size(mvtssr_map_t *m, mvtssr_size_t *si) {
+  m->map->setSize(si->si);
+}
+
+MVTSSRAPICALL mvtssr_map_options_t *
+mvtssr_map_get_map_options(mvtssr_map_t *m) {
+  return new mvtssr_map_options_t{m->map->getMapOptions()};
+}
+
+MVTSSRAPICALL mvtssr_screen_coordinate_t *
+mvtssr_map_pixel_for_latlng(mvtssr_map_t *m, mvtssr_latlng_t *ll) {
+  return new mvtssr_screen_coordinate_t{m->map->pixelForLatLng(ll->ll)};
+}
+
+MVTSSRAPICALL mvtssr_latlng_t *
+mvtssr_map_latlng_for_pixel(mvtssr_map_t *m,
+                            mvtssr_screen_coordinate_t *coord) {
+  return new mvtssr_latlng_t{m->map->latLngForPixel(coord->sc)};
+}
+
+MVTSSRAPICALL
+mvtssr_resource_t *mvtssr_new_resource_style(const char *url) {
+  return new mvtssr_resource_t{mbgl::Resource::style(url)};
+}
+
+MVTSSRAPICALL
+mvtssr_resource_t *mvtssr_new_resource_source(const char *url) {
+  return new mvtssr_resource_t{mbgl::Resource::source(url)};
+}
+
+MVTSSRAPICALL
+mvtssr_resource_t *mvtssr_new_resource_tile(const char *urltpl,
+                                            float pixelRatio, int32_t x,
+                                            int32_t y, int8_t z, _Bool isTms) {
+  return new mvtssr_resource_t{mbgl::Resource::tile(
+      urltpl, pixelRatio, x, y, z, static_cast<mbgl::Tileset::Scheme>(isTms))};
+}
+
+MVTSSRAPICALL
+mvtssr_resource_t *mvtssr_new_resource_glyphs(const char *urltpl,
+                                              const char *fontStack,
+                                              uint16_t start, uint16_t end) {
+  mbgl::FontStack st{fontStack};
+  return new mvtssr_resource_t{
+      mbgl::Resource::glyphs(urltpl, st, std::make_pair(start, end))};
+}
+
+MVTSSRAPICALL
+mvtssr_resource_t *mvtssr_new_resource_sprite_image(const char *base,
+                                                    float pixelRatio) {
+  return new mvtssr_resource_t{mbgl::Resource::spriteImage(base, pixelRatio)};
+}
+
+MVTSSRAPICALL
+mvtssr_resource_t *mvtssr_new_resource_sprite_json(const char *base,
+                                                   float pixelRatio) {
+  return new mvtssr_resource_t{mbgl::Resource::spriteJSON(base, pixelRatio)};
+}
+
+MVTSSRAPICALL
+mvtssr_resource_t *mvtssr_new_resource_image(const char *url) {
+  return new mvtssr_resource_t{mbgl::Resource::image(url)};
+}
+
+MVTSSRAPICALL void mvtssr_resource_free(mvtssr_resource_t *r) { delete r; }
+
+MVTSSRAPICALL uint8_t mvtssr_resource_get_kind(mvtssr_resource_t *r) {
+  return static_cast<uint8_t>(r->res.kind);
+}
+
+MVTSSRAPICALL
+mvtssr_premultiplied_image_t *mvtssr_empty_premultiplied_image() {
+  return new mvtssr_premultiplied_image_t{};
+}
+
+MVTSSRAPICALL
+mvtssr_premultiplied_image_t *
+mvtssr_new_premultiplied_image(mvtssr_size_t *size) {
+  return new mvtssr_premultiplied_image_t{{size->si}};
+}
+
+MVTSSRAPICALL
+mvtssr_premultiplied_image_t *
+mvtssr_new_premultiplied_image_with_data(mvtssr_size_t *size,
+                                         const uint8_t *data, size_t length) {
+  return new mvtssr_premultiplied_image_t{{size->si, data, length}};
+}
+
+MVTSSRAPICALL void
+mvtssr_premultiplied_image_free(mvtssr_premultiplied_image_t *r) {
+  delete r;
+}
+
+MVTSSRAPICALL _Bool
+mvtssr_premultiplied_image_valid(mvtssr_premultiplied_image_t *r) {
+  return r->img.valid();
+}
+
+MVTSSRAPICALL size_t
+mvtssr_premultiplied_image_stride(mvtssr_premultiplied_image_t *r) {
+  return r->img.stride();
+}
+
+MVTSSRAPICALL size_t
+mvtssr_premultiplied_image_bytes(mvtssr_premultiplied_image_t *r) {
+  return r->img.bytes();
+}
+
+MVTSSRAPICALL uint8_t *
+mvtssr_premultiplied_image_data(mvtssr_premultiplied_image_t *r) {
+  return r->img.data.get();
+}
 
 #ifdef __cplusplus
 }

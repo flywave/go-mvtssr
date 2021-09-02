@@ -28,6 +28,7 @@ typedef struct _mvtssr_map_options_t mvtssr_map_options_t;
 typedef struct _mvtssr_file_source_t mvtssr_file_source_t;
 typedef struct _mvtssr_file_source_manager_t mvtssr_file_source_manager_t;
 typedef struct _mvtssr_map_t mvtssr_map_t;
+typedef struct _mvtssr_style_t mvtssr_style_t;
 typedef struct _mvtssr_bound_options_t mvtssr_bound_options_t;
 typedef struct _mvtssr_resource_t mvtssr_resource_t;
 typedef struct _mvtssr_file_source_factory_t mvtssr_file_source_factory_t;
@@ -37,19 +38,7 @@ typedef struct _mvtssr_map_snapshotter_observer_t
     mvtssr_map_snapshotter_observer_t;
 typedef struct _mvtssr_map_snapshotter_t mvtssr_map_snapshotter_t;
 typedef struct _mvtssr_map_snapshotter_result_t mvtssr_map_snapshotter_result_t;
-
-typedef struct _mvtssr_offline_region_metadata_t
-    mvtssr_offline_region_metadata_t;
-typedef struct _mvtssr_offline_region_status_t mvtssr_offline_region_status_t;
-typedef struct _mvtssr_offline_region_observer_t
-    mvtssr_offline_region_observer_t;
-typedef struct _mvtssr_offline_region_t mvtssr_offline_region_t;
-typedef struct _mvtssr_offline_region_definition_t
-    mvtssr_offline_region_definition_t;
-
 typedef struct _mvtssr_premultiplied_image_t mvtssr_premultiplied_image_t;
-typedef struct _mvtssr_unassociated_image_image_t
-    mvtssr_unassociated_image_image_t;
 
 MVTSSRAPICALL mvtssr_canonical_tileid_t *
 new_mvtssr_canonical_tileid(uint8_t z, uint32_t x, uint32_t y);
@@ -329,11 +318,104 @@ MVTSSRAPICALL mvtssr_latlng_t *mvtssr_map_snapshotter_result_latlng_for_pixel(
     mvtssr_map_snapshotter_result_t *op, mvtssr_screen_coordinate_t *coord);
 
 MVTSSRAPICALL
+mvtssr_style_t *mvtssr_new_style(mvtssr_file_source_t *source,
+                                 float pixelRatio);
+MVTSSRAPICALL void mvtssr_style_free(mvtssr_style_t *m);
+MVTSSRAPICALL char *mvtssr_style_get_json(mvtssr_style_t *m);
+MVTSSRAPICALL char *mvtssr_style_get_url(mvtssr_style_t *m);
+
+MVTSSRAPICALL
+mvtssr_bound_options_t *mvtssr_new_bound_options();
+MVTSSRAPICALL void mvtssr_bound_options_free(mvtssr_bound_options_t *m);
+MVTSSRAPICALL void
+mvtssr_bound_options_set_bounds(mvtssr_bound_options_t *opt,
+                                mvtssr_latlng_bounds_t *bounds);
+MVTSSRAPICALL void mvtssr_bound_options_set_min_zoom(mvtssr_bound_options_t *m,
+                                                     double z);
+MVTSSRAPICALL void mvtssr_bound_options_set_max_zoom(mvtssr_bound_options_t *m,
+                                                     double z);
+MVTSSRAPICALL void mvtssr_bound_options_set_min_pitch(mvtssr_bound_options_t *m,
+                                                      double z);
+MVTSSRAPICALL void mvtssr_bound_options_set_max_pitch(mvtssr_bound_options_t *m,
+                                                      double z);
+
+MVTSSRAPICALL
 mvtssr_map_t *mvtssr_new_map(mvtssr_headless_frontend_t *fr,
                              mvtssr_map_observer_t *obser,
                              mvtssr_map_options_t *opts,
                              mvtssr_resource_options_t *ropts);
 MVTSSRAPICALL void mvtssr_map_free(mvtssr_map_t *m);
+MVTSSRAPICALL void mvtssr_map_set_style(mvtssr_map_t *m, mvtssr_style_t *s);
+MVTSSRAPICALL mvtssr_camera_options_t *
+mvtssr_map_camera_options(mvtssr_map_t *m, mvtssr_edge_insets_t *e);
+MVTSSRAPICALL void mvtssr_map_jump_to(mvtssr_map_t *m,
+                                      mvtssr_camera_options_t *opt);
+MVTSSRAPICALL mvtssr_camera_options_t *mvtssr_map_camera_for_latlng_bounds(
+    mvtssr_map_t *m, mvtssr_latlng_bounds_t *bounds, mvtssr_edge_insets_t *e,
+    double *bearing, double *pitch);
+MVTSSRAPICALL mvtssr_latlng_bounds_t *
+mvtssr_map_camera_latlng_bounds_for_camera(mvtssr_map_t *m,
+                                           mvtssr_camera_options_t *opt);
+MVTSSRAPICALL mvtssr_latlng_bounds_t *
+mvtssr_map_camera_latlng_bounds_for_camera_unwrapped(
+    mvtssr_map_t *m, mvtssr_camera_options_t *opt);
+MVTSSRAPICALL void mvtssr_map_set_bounds(mvtssr_map_t *m,
+                                         mvtssr_bound_options_t *opts);
+MVTSSRAPICALL mvtssr_bound_options_t *mvtssr_map_get_bounds(mvtssr_map_t *m);
+MVTSSRAPICALL void mvtssr_map_set_north_orientation(mvtssr_map_t *m,
+                                                    uint32_t ori);
+MVTSSRAPICALL void mvtssr_map_set_constrain_mode(mvtssr_map_t *m,
+                                                 uint32_t mode);
+MVTSSRAPICALL void mvtssr_map_set_viewport_mode(mvtssr_map_t *m, uint32_t mode);
+MVTSSRAPICALL void mvtssr_map_set_size(mvtssr_map_t *m, mvtssr_size_t *si);
+MVTSSRAPICALL mvtssr_map_options_t *mvtssr_map_get_map_options(mvtssr_map_t *m);
+MVTSSRAPICALL mvtssr_screen_coordinate_t *
+mvtssr_map_pixel_for_latlng(mvtssr_map_t *m, mvtssr_latlng_t *ll);
+MVTSSRAPICALL mvtssr_latlng_t *
+mvtssr_map_latlng_for_pixel(mvtssr_map_t *m, mvtssr_screen_coordinate_t *coord);
+
+MVTSSRAPICALL
+mvtssr_resource_t *mvtssr_new_resource_style(const char *url);
+MVTSSRAPICALL
+mvtssr_resource_t *mvtssr_new_resource_source(const char *url);
+MVTSSRAPICALL
+mvtssr_resource_t *mvtssr_new_resource_tile(const char *urltpl,
+                                            float pixelRatio, int32_t x,
+                                            int32_t y, int8_t z, _Bool isTms);
+MVTSSRAPICALL
+mvtssr_resource_t *mvtssr_new_resource_glyphs(const char *urltpl,
+                                              const char *fontStack,
+                                              uint16_t start, uint16_t end);
+MVTSSRAPICALL
+mvtssr_resource_t *mvtssr_new_resource_sprite_image(const char *base,
+                                                    float pixelRatio);
+MVTSSRAPICALL
+mvtssr_resource_t *mvtssr_new_resource_sprite_json(const char *base,
+                                                   float pixelRatio);
+MVTSSRAPICALL
+mvtssr_resource_t *mvtssr_new_resource_image(const char *url);
+MVTSSRAPICALL void mvtssr_resource_free(mvtssr_resource_t *r);
+MVTSSRAPICALL uint8_t mvtssr_resource_get_kind(mvtssr_resource_t *r);
+
+MVTSSRAPICALL
+mvtssr_premultiplied_image_t *mvtssr_empty_premultiplied_image();
+MVTSSRAPICALL
+mvtssr_premultiplied_image_t *
+mvtssr_new_premultiplied_image(mvtssr_size_t *size);
+MVTSSRAPICALL
+mvtssr_premultiplied_image_t *
+mvtssr_new_premultiplied_image_with_data(mvtssr_size_t *size,
+                                         const uint8_t *data, size_t length);
+MVTSSRAPICALL void
+mvtssr_premultiplied_image_free(mvtssr_premultiplied_image_t *r);
+MVTSSRAPICALL _Bool
+mvtssr_premultiplied_image_valid(mvtssr_premultiplied_image_t *r);
+MVTSSRAPICALL size_t
+mvtssr_premultiplied_image_stride(mvtssr_premultiplied_image_t *r);
+MVTSSRAPICALL size_t
+mvtssr_premultiplied_image_bytes(mvtssr_premultiplied_image_t *r);
+MVTSSRAPICALL uint8_t *
+mvtssr_premultiplied_image_data(mvtssr_premultiplied_image_t *r);
 
 #ifdef __cplusplus
 }

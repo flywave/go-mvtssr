@@ -66,6 +66,11 @@ func NewFileSourceManager() *FileSourceManager {
 	return ret
 }
 
+func (t *FileSourceManager) GetFileSource(tp FileType, opt *ResourceOptions) *FileSource {
+	//TODO
+	return nil
+}
+
 func (t *FileSourceManager) Register(f *FileSourceFactory) {
 	C.mvtssr_file_source_manager_register_file_source_factory(t.m, f.m)
 }

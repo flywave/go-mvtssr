@@ -18,7 +18,7 @@ type FileLoader interface {
 }
 
 type FileSourceCreater interface {
-	Make(r *ResourceOptions) *C.struct__mvtssr_unique_file_source_t
+	Create(r *ResourceOptions) *C.struct__mvtssr_unique_file_source_t
 }
 
 func newFileSource(loader FileLoader) *C.struct__mvtssr_unique_file_source_t {
@@ -29,7 +29,7 @@ func newFileSource(loader FileLoader) *C.struct__mvtssr_unique_file_source_t {
 func goFileSourceFactoryCreate(ctx unsafe.Pointer, opt *C.struct__mvtssr_resource_options_t) *C.struct__mvtssr_unique_file_source_t {
 	ropt := &ResourceOptions{m: opt}
 	runtime.SetFinalizer(ropt, (*ResourceOptions).free)
-	fsrc := (*(*FileSourceCreater)(ctx)).Make(ropt)
+	fsrc := (*(*FileSourceCreater)(ctx)).Create(ropt)
 	return fsrc
 }
 

@@ -25,7 +25,6 @@ func (t *FileSource) free() {
 func goFileSourceLoadAsync(ctx unsafe.Pointer, req *C.struct__mvtssr_file_source_request_t, res *C.struct__mvtssr_resource_t) {
 	freq := &FileSourceRequest{m: req}
 	runtime.SetFinalizer(freq, (*FileSourceRequest).free)
-
 	fres := &Resource{m: res}
 	runtime.SetFinalizer(fres, (*Resource).free)
 	(*(*FileLoader)(ctx)).LoadAsync(freq, fres)

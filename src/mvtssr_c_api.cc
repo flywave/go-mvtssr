@@ -198,8 +198,8 @@ MVTSSRAPICALL _Bool mvtssr_canonical_tileid_is_child_less(
   return a->id < b->id;
 }
 
-MVTSSRAPICALL _Bool mvtssr_canonical_tileid_is_child_eq(
-    mvtssr_canonical_tileid_t *a, mvtssr_canonical_tileid_t *b) {
+MVTSSRAPICALL _Bool mvtssr_canonical_tileid_eq(mvtssr_canonical_tileid_t *a,
+                                               mvtssr_canonical_tileid_t *b) {
   return a->id == b->id;
 }
 
@@ -349,6 +349,8 @@ MVTSSRAPICALL mvtssr_edge_insets_t *mvtssr_new_edge_insets(double t, double l,
   return new mvtssr_edge_insets_t{mbgl::EdgeInsets(t, l, b, r)};
 }
 
+MVTSSRAPICALL void mvtssr_edge_free(mvtssr_edge_insets_t *edge) { delete edge; }
+
 MVTSSRAPICALL double mvtssr_edge_top(mvtssr_edge_insets_t *edge) {
   return edge->edge.top();
 }
@@ -365,7 +367,7 @@ MVTSSRAPICALL double mvtssr_edge_right(mvtssr_edge_insets_t *edge) {
   return edge->edge.right();
 }
 
-MVTSSRAPICALL double mvtssr_edge_is_flush(mvtssr_edge_insets_t *edge) {
+MVTSSRAPICALL _Bool mvtssr_edge_is_flush(mvtssr_edge_insets_t *edge) {
   return edge->edge.isFlush();
 }
 
@@ -409,6 +411,10 @@ MVTSSRAPICALL mvtssr_camera_options_t *mvtssr_new_camera_options() {
   return new mvtssr_camera_options_t{};
 }
 
+MVTSSRAPICALL void mvtssr_camera_options_free(mvtssr_camera_options_t *opt) {
+  delete opt;
+}
+
 MVTSSRAPICALL void
 mvtssr_camera_options_set_center(mvtssr_camera_options_t *opt,
                                  mvtssr_latlng_t *point) {
@@ -441,54 +447,6 @@ mvtssr_camera_options_set_bearing(mvtssr_camera_options_t *opt,
 MVTSSRAPICALL void mvtssr_camera_options_set_pitch(mvtssr_camera_options_t *opt,
                                                    double pitch) {
   opt->opt.pitch = pitch;
-}
-
-MVTSSRAPICALL mvtssr_latlng_t *
-mvtssr_camera_options_get_center(mvtssr_camera_options_t *opt) {
-  if (opt->opt.center) {
-    return new mvtssr_latlng_t{*opt->opt.center};
-  }
-  return nullptr;
-}
-
-MVTSSRAPICALL mvtssr_edge_insets_t *
-mvtssr_camera_options_get_padding(mvtssr_camera_options_t *opt) {
-  if (opt->opt.padding) {
-    return new mvtssr_edge_insets_t{*opt->opt.padding};
-  }
-  return nullptr;
-}
-
-MVTSSRAPICALL mvtssr_screen_coordinate_t *
-mvtssr_camera_options_get_anchor(mvtssr_camera_options_t *opt) {
-  if (opt->opt.padding) {
-    return new mvtssr_screen_coordinate_t{*opt->opt.anchor};
-  }
-  return nullptr;
-}
-
-MVTSSRAPICALL double
-mvtssr_camera_options_get_zoom(mvtssr_camera_options_t *opt) {
-  if (opt->opt.zoom) {
-    return *opt->opt.zoom;
-  }
-  return std::numeric_limits<double>::infinity();
-}
-
-MVTSSRAPICALL
-double mvtssr_camera_options_get_bearing(mvtssr_camera_options_t *opt) {
-  if (opt->opt.bearing) {
-    return *opt->opt.bearing;
-  }
-  return std::numeric_limits<double>::infinity();
-}
-
-MVTSSRAPICALL double
-mvtssr_camera_options_get_pitch(mvtssr_camera_options_t *opt) {
-  if (opt->opt.pitch) {
-    return *opt->opt.pitch;
-  }
-  return std::numeric_limits<double>::infinity();
 }
 
 MVTSSRAPICALL
@@ -562,7 +520,7 @@ mvtssr_map_options_set_cross_source_collisions(mvtssr_map_options_t *opt,
 
 MVTSSRAPICALL void
 mvtssr_map_options_set_north_orientation(mvtssr_map_options_t *opt,
-                                         uint32_t ori) {
+                                         uint8_t ori) {
   opt->opt.withNorthOrientation(static_cast<mbgl::NorthOrientation>(ori));
 }
 
@@ -574,41 +532,6 @@ MVTSSRAPICALL void mvtssr_map_options_set_size(mvtssr_map_options_t *opt,
 MVTSSRAPICALL void mvtssr_map_options_set_pixel_ratio(mvtssr_map_options_t *opt,
                                                       float ratio) {
   opt->opt.withPixelRatio(ratio);
-}
-
-MVTSSRAPICALL uint32_t
-mvtssr_map_options_get_map_mode(mvtssr_map_options_t *opt) {
-  return static_cast<uint32_t>(opt->opt.mapMode());
-}
-
-MVTSSRAPICALL uint32_t
-mvtssr_map_options_get_constrain_mode(mvtssr_map_options_t *opt) {
-  return static_cast<uint32_t>(opt->opt.constrainMode());
-}
-
-MVTSSRAPICALL uint32_t
-mvtssr_map_options_get_viewport_mode(mvtssr_map_options_t *opt) {
-  return static_cast<uint32_t>(opt->opt.viewportMode());
-}
-
-MVTSSRAPICALL _Bool
-mvtssr_map_options_get_cross_source_collisions(mvtssr_map_options_t *opt) {
-  return opt->opt.crossSourceCollisions();
-}
-
-MVTSSRAPICALL uint32_t
-mvtssr_map_options_get_north_orientation(mvtssr_map_options_t *opt) {
-  return static_cast<uint32_t>(opt->opt.northOrientation());
-}
-
-MVTSSRAPICALL mvtssr_size_t *
-mvtssr_map_options_get_size(mvtssr_map_options_t *opt) {
-  return new mvtssr_size_t{opt->opt.size()};
-}
-
-MVTSSRAPICALL float
-mvtssr_map_options_get_pixel_ratio(mvtssr_map_options_t *opt) {
-  return opt->opt.pixelRatio();
 }
 
 MVTSSRAPICALL
@@ -813,7 +736,7 @@ mvtssr_map_snapshotter_get_region(mvtssr_map_snapshotter_t *snap) {
 }
 
 MVTSSRAPICALL void
-mvtssr_map_snapshotter_observer_cancel(mvtssr_map_snapshotter_t *snap) {
+mvtssr_map_snapshotter_cancel(mvtssr_map_snapshotter_t *snap) {
   snap->snap.cancel();
 }
 
@@ -822,7 +745,7 @@ void mvtssr_map_snapshotter_result_finish(
   // TODO
 }
 
-MVTSSRAPICALL void mvtssr_map_snapshotter_observer_snapshot(
+MVTSSRAPICALL void mvtssr_map_snapshotter_snapshot(
     mvtssr_map_snapshotter_t *snap, mvtssr_map_snapshotter_result_t *result) {
   snap->snap.snapshot([result](std::exception_ptr e,
                                mbgl::PremultipliedImage img,
@@ -1109,6 +1032,13 @@ mvtssr_premultiplied_image_bytes(mvtssr_premultiplied_image_t *r) {
 MVTSSRAPICALL uint8_t *
 mvtssr_premultiplied_image_data(mvtssr_premultiplied_image_t *r) {
   return r->img.data.get();
+}
+
+MVTSSRAPICALL void
+mvtssr_premultiplied_image_size(mvtssr_premultiplied_image_t *r,
+                                uint32_t *width, uint32_t *height) {
+  *width = r->img.size.width;
+  *height = r->img.size.height;
 }
 
 #ifdef __cplusplus

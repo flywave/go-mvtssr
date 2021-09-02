@@ -49,8 +49,8 @@ MVTSSRAPICALL _Bool mvtssr_canonical_tileid_is_child_of(
     mvtssr_canonical_tileid_t *id, mvtssr_canonical_tileid_t *tar);
 MVTSSRAPICALL _Bool mvtssr_canonical_tileid_is_child_less(
     mvtssr_canonical_tileid_t *a, mvtssr_canonical_tileid_t *b);
-MVTSSRAPICALL _Bool mvtssr_canonical_tileid_is_child_eq(
-    mvtssr_canonical_tileid_t *a, mvtssr_canonical_tileid_t *b);
+MVTSSRAPICALL _Bool mvtssr_canonical_tileid_eq(mvtssr_canonical_tileid_t *a,
+                                               mvtssr_canonical_tileid_t *b);
 MVTSSRAPICALL _Bool mvtssr_canonical_tileid_children(
     mvtssr_canonical_tileid_t *id, mvtssr_canonical_tileid_t **childs);
 
@@ -104,11 +104,12 @@ MVTSSRAPICALL _Bool latlng_bounds_contains_intersects(
 
 MVTSSRAPICALL mvtssr_edge_insets_t *mvtssr_new_edge_insets(double t, double l,
                                                            double b, double r);
+MVTSSRAPICALL void mvtssr_edge_free(mvtssr_edge_insets_t *edge);
 MVTSSRAPICALL double mvtssr_edge_top(mvtssr_edge_insets_t *edge);
 MVTSSRAPICALL double mvtssr_edge_left(mvtssr_edge_insets_t *edge);
 MVTSSRAPICALL double mvtssr_edge_bottom(mvtssr_edge_insets_t *edge);
 MVTSSRAPICALL double mvtssr_edge_right(mvtssr_edge_insets_t *edge);
-MVTSSRAPICALL double mvtssr_edge_is_flush(mvtssr_edge_insets_t *edge);
+MVTSSRAPICALL _Bool mvtssr_edge_is_flush(mvtssr_edge_insets_t *edge);
 MVTSSRAPICALL mvtssr_screen_coordinate_t *
 mvtssr_edge_get_center(mvtssr_edge_insets_t *edge, uint16_t width,
                        uint16_t height);
@@ -125,6 +126,7 @@ MVTSSRAPICALL double mvtssr_screen_coordinate_x(mvtssr_screen_coordinate_t *sc);
 MVTSSRAPICALL double mvtssr_screen_coordinate_y(mvtssr_screen_coordinate_t *sc);
 
 MVTSSRAPICALL mvtssr_camera_options_t *mvtssr_new_camera_options();
+MVTSSRAPICALL void mvtssr_camera_options_free(mvtssr_camera_options_t *opt);
 MVTSSRAPICALL void
 mvtssr_camera_options_set_center(mvtssr_camera_options_t *opt,
                                  mvtssr_latlng_t *point);
@@ -140,18 +142,6 @@ MVTSSRAPICALL void
 mvtssr_camera_options_set_bearing(mvtssr_camera_options_t *opt, double bearing);
 MVTSSRAPICALL void mvtssr_camera_options_set_pitch(mvtssr_camera_options_t *opt,
                                                    double pitch);
-MVTSSRAPICALL mvtssr_latlng_t *
-mvtssr_camera_options_get_center(mvtssr_camera_options_t *opt);
-MVTSSRAPICALL mvtssr_edge_insets_t *
-mvtssr_camera_options_get_padding(mvtssr_camera_options_t *opt);
-MVTSSRAPICALL mvtssr_screen_coordinate_t *
-mvtssr_camera_options_get_anchor(mvtssr_camera_options_t *opt);
-MVTSSRAPICALL double
-mvtssr_camera_options_get_zoom(mvtssr_camera_options_t *opt);
-MVTSSRAPICALL double
-mvtssr_camera_options_get_bearing(mvtssr_camera_options_t *opt);
-MVTSSRAPICALL double
-mvtssr_camera_options_get_pitch(mvtssr_camera_options_t *opt);
 
 MVTSSRAPICALL
 mvtssr_size_t *mvtssr_new_size(uint32_t width, uint32_t height);
@@ -183,25 +173,11 @@ mvtssr_map_options_set_cross_source_collisions(mvtssr_map_options_t *opt,
                                                _Bool sc);
 MVTSSRAPICALL void
 mvtssr_map_options_set_north_orientation(mvtssr_map_options_t *opt,
-                                         uint32_t ori);
+                                         uint8_t ori);
 MVTSSRAPICALL void mvtssr_map_options_set_size(mvtssr_map_options_t *opt,
                                                mvtssr_size_t *si);
 MVTSSRAPICALL void mvtssr_map_options_set_pixel_ratio(mvtssr_map_options_t *opt,
                                                       float ratio);
-MVTSSRAPICALL uint32_t
-mvtssr_map_options_get_map_mode(mvtssr_map_options_t *opt);
-MVTSSRAPICALL uint32_t
-mvtssr_map_options_get_constrain_mode(mvtssr_map_options_t *opt);
-MVTSSRAPICALL uint32_t
-mvtssr_map_options_get_viewport_mode(mvtssr_map_options_t *opt);
-MVTSSRAPICALL _Bool
-mvtssr_map_options_get_cross_source_collisions(mvtssr_map_options_t *opt);
-MVTSSRAPICALL uint32_t
-mvtssr_map_options_get_north_orientation(mvtssr_map_options_t *opt);
-MVTSSRAPICALL mvtssr_size_t *
-mvtssr_map_options_get_size(mvtssr_map_options_t *opt);
-MVTSSRAPICALL float
-mvtssr_map_options_get_pixel_ratio(mvtssr_map_options_t *opt);
 
 MVTSSRAPICALL
 mvtssr_file_source_t *mvtssr_new_file_source(void *ctx);
@@ -300,9 +276,10 @@ mvtssr_map_snapshotter_set_region(mvtssr_map_snapshotter_t *snap,
 MVTSSRAPICALL mvtssr_latlng_bounds_t *
 mvtssr_map_snapshotter_get_region(mvtssr_map_snapshotter_t *snap);
 MVTSSRAPICALL void
-mvtssr_map_snapshotter_observer_cancel(mvtssr_map_snapshotter_t *snap);
-MVTSSRAPICALL void mvtssr_map_snapshotter_observer_snapshot(
+mvtssr_map_snapshotter_cancel(mvtssr_map_snapshotter_t *snap);
+MVTSSRAPICALL void mvtssr_map_snapshotter_snapshot(
     mvtssr_map_snapshotter_t *snap, mvtssr_map_snapshotter_result_t *result);
+
 MVTSSRAPICALL
 mvtssr_map_snapshotter_result_t *mvtssr_new_map_snapshotter_result(void *ctx);
 MVTSSRAPICALL void
@@ -416,6 +393,9 @@ MVTSSRAPICALL size_t
 mvtssr_premultiplied_image_bytes(mvtssr_premultiplied_image_t *r);
 MVTSSRAPICALL uint8_t *
 mvtssr_premultiplied_image_data(mvtssr_premultiplied_image_t *r);
+MVTSSRAPICALL void
+mvtssr_premultiplied_image_size(mvtssr_premultiplied_image_t *r,
+                                uint32_t *width, uint32_t *height);
 
 #ifdef __cplusplus
 }

@@ -37,7 +37,7 @@ type FileSourceFactory struct {
 	m *C.struct__mvtssr_file_source_factory_t
 }
 
-func NewFileSourceFactory(tp FileType, creater FileSourceCreater) *FileSourceFactory {
+func NewFileSourceFactory(tp FileSourceType, creater FileSourceCreater) *FileSourceFactory {
 	ret := &FileSourceFactory{m: C.mvtssr_new_file_source_factory(C.uchar(tp), unsafe.Pointer(&creater))}
 	runtime.SetFinalizer(ret, (*FileSourceFactory).free)
 	return ret
@@ -61,7 +61,7 @@ func NewFileSourceManager() *FileSourceManager {
 	return ret
 }
 
-func (t *FileSourceManager) GetFileSource(tp FileType, opt *ResourceOptions) *FileSource {
+func (t *FileSourceManager) GetFileSource(tp FileSourceType, opt *ResourceOptions) *FileSource {
 	ret := &FileSource{m: C.mvtssr_file_source_manager_get_file_source(t.m, C.uchar(tp), opt.m)}
 	runtime.SetFinalizer(ret, (*FileSource).free)
 	return ret

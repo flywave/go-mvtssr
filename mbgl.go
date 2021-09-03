@@ -45,14 +45,14 @@ const (
 	Resource_Image       ResourceKind = 7
 )
 
-type FileType uint8
+type FileSourceType uint8
 
 const (
-	Asset          FileType = 0
-	Database       FileType = 1
-	FileSystem     FileType = 2
-	Network        FileType = 3
-	ResourceLoader FileType = 4
+	Asset          FileSourceType = 0
+	Database       FileSourceType = 1
+	FileSystem     FileSourceType = 2
+	Network        FileSourceType = 3
+	ResourceLoader FileSourceType = 4
 )
 
 type CameraChangeMode uint32

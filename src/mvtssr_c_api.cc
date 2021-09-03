@@ -1168,6 +1168,22 @@ mvtssr_map_latlng_for_pixel(mvtssr_map_t *m,
   return new mvtssr_latlng_t{m->map->latLngForPixel(coord->sc)};
 }
 
+MVTSSRAPICALL void mvtssr_map_set_debug(mvtssr_map_t *m, uint32_t opt) {
+  m->map->setDebug(static_cast<mbgl::MapDebugOptions>(opt));
+}
+
+MVTSSRAPICALL uint32_t mvtssr_map_get_debug(mvtssr_map_t *m) {
+  return static_cast<uint32_t>(m->map->getDebug());
+}
+
+MVTSSRAPICALL void mvtssr_map_trigger_repaint(mvtssr_map_t *m) {
+  m->map->triggerRepaint();
+}
+
+MVTSSRAPICALL _Bool mvtssr_map_is_fully_loaded(mvtssr_map_t *m) {
+  return m->map->isFullyLoaded();
+}
+
 MVTSSRAPICALL
 mvtssr_resource_t *mvtssr_new_resource_style(const char *url) {
   return new mvtssr_resource_t{mbgl::Resource::style(url)};
@@ -1181,9 +1197,11 @@ mvtssr_resource_t *mvtssr_new_resource_source(const char *url) {
 MVTSSRAPICALL
 mvtssr_resource_t *mvtssr_new_resource_tile(const char *urltpl,
                                             float pixelRatio, int32_t x,
-                                            int32_t y, int8_t z, _Bool isTms) {
+                                            int32_t y, int8_t z, _Bool isTms,
+                                            uint8_t lm) {
   return new mvtssr_resource_t{mbgl::Resource::tile(
-      urltpl, pixelRatio, x, y, z, static_cast<mbgl::Tileset::Scheme>(isTms))};
+      urltpl, pixelRatio, x, y, z, static_cast<mbgl::Tileset::Scheme>(isTms),
+      static_cast<mbgl::Resource::LoadingMethod>(lm))};
 }
 
 MVTSSRAPICALL
@@ -1216,6 +1234,14 @@ MVTSSRAPICALL void mvtssr_resource_free(mvtssr_resource_t *r) { delete r; }
 
 MVTSSRAPICALL uint8_t mvtssr_resource_get_kind(mvtssr_resource_t *r) {
   return static_cast<uint8_t>(r->res.kind);
+}
+
+MVTSSRAPICALL void mvtssr_resource_set_usage(mvtssr_resource_t *r, _Bool usage) {
+  r->res.setUsage(static_cast<mbgl::Resource::Usage>(usage));
+}
+
+MVTSSRAPICALL _Bool mvtssr_resource_get_usage(mvtssr_resource_t *r) {
+  return static_cast<_Bool>(r->res.usage);
 }
 
 MVTSSRAPICALL

@@ -23,6 +23,14 @@ func (t *Resource) GetKind() ResourceKind {
 	return ResourceKind(C.mvtssr_resource_get_kind(t.m))
 }
 
+func (t *Resource) GetUsage() ResourceUsage {
+	return ResourceUsage(C.mvtssr_resource_get_usage(t.m))
+}
+
+func (t *Resource) SetUsage(u ResourceUsage) {
+	C.mvtssr_resource_set_usage(t.m, C.bool(u))
+}
+
 func NewStyleResource(url string) *Resource {
 	curl := C.CString(url)
 	defer C.free(unsafe.Pointer(curl))
@@ -39,10 +47,10 @@ func NewSourceResource(url string) *Resource {
 	return ret
 }
 
-func NewTileResource(urltpl string, pixelRatio float32, x, y int32, z int8, isTms bool) *Resource {
+func NewTileResource(urltpl string, pixelRatio float32, x, y int32, z int8, isTms bool, m LoadingMethod) *Resource {
 	curltpl := C.CString(urltpl)
 	defer C.free(unsafe.Pointer(curltpl))
-	ret := &Resource{m: C.mvtssr_new_resource_tile(curltpl, C.float(pixelRatio), C.int(x), C.int(y), C.schar(z), C.bool(isTms))}
+	ret := &Resource{m: C.mvtssr_new_resource_tile(curltpl, C.float(pixelRatio), C.int(x), C.int(y), C.schar(z), C.bool(isTms), C.uchar(m))}
 	runtime.SetFinalizer(ret, (*Resource).free)
 	return ret
 }

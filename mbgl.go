@@ -88,3 +88,34 @@ const (
 	RateLimit  ReasonError = 5
 	Other      ReasonError = 6
 )
+
+type MapDebugOptions uint32
+
+const (
+	NoDebug     MapDebugOptions = 0
+	TileBorders MapDebugOptions = 1 << 1
+	ParseStatus MapDebugOptions = 1 << 2
+	Timestamps  MapDebugOptions = 1 << 3
+	Collision   MapDebugOptions = 1 << 4
+	Overdraw    MapDebugOptions = 1 << 5
+	StencilClip MapDebugOptions = 1 << 6
+	DepthBuffer MapDebugOptions = 1 << 7
+)
+
+type ResourceUsage bool
+
+const (
+	Online  ResourceUsage = false
+	Offline ResourceUsage = true
+)
+
+type LoadingMethod uint8
+
+const (
+	LM_None        LoadingMethod = 0b00
+	LM_Cache       LoadingMethod = 0b01
+	LM_Network     LoadingMethod = 0b10
+	LM_CacheOnly   LoadingMethod = LM_Cache
+	LM_NetworkOnly LoadingMethod = LM_Network
+	LM_All         LoadingMethod = LM_Cache | LM_Network
+)

@@ -97,3 +97,15 @@ func (t *Map) LatLngForPixel(sc *ScreenCoordinate) *LatLng {
 	runtime.SetFinalizer(ret, (*LatLng).free)
 	return ret
 }
+
+func (t *Map) SetDebug(o MapDebugOptions) {
+	C.mvtssr_map_set_debug(t.m, C.uint(o))
+}
+
+func (t *Map) GetDebug() MapDebugOptions {
+	return MapDebugOptions(C.mvtssr_map_get_debug(t.m))
+}
+
+func (t *Map) TriggerRepaint() {
+	C.mvtssr_map_trigger_repaint(t.m)
+}

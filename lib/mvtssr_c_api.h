@@ -381,6 +381,10 @@ MVTSSRAPICALL mvtssr_screen_coordinate_t *
 mvtssr_map_pixel_for_latlng(mvtssr_map_t *m, mvtssr_latlng_t *ll);
 MVTSSRAPICALL mvtssr_latlng_t *
 mvtssr_map_latlng_for_pixel(mvtssr_map_t *m, mvtssr_screen_coordinate_t *coord);
+MVTSSRAPICALL void mvtssr_map_set_debug(mvtssr_map_t *m, uint32_t opt);
+MVTSSRAPICALL uint32_t mvtssr_map_get_debug(mvtssr_map_t *m);
+MVTSSRAPICALL void mvtssr_map_trigger_repaint(mvtssr_map_t *m);
+MVTSSRAPICALL _Bool mvtssr_map_is_fully_loaded(mvtssr_map_t *m);
 
 MVTSSRAPICALL
 mvtssr_resource_t *mvtssr_new_resource_style(const char *url);
@@ -389,7 +393,8 @@ mvtssr_resource_t *mvtssr_new_resource_source(const char *url);
 MVTSSRAPICALL
 mvtssr_resource_t *mvtssr_new_resource_tile(const char *urltpl,
                                             float pixelRatio, int32_t x,
-                                            int32_t y, int8_t z, _Bool isTms);
+                                            int32_t y, int8_t z, _Bool isTms,
+                                            uint8_t lm);
 MVTSSRAPICALL
 mvtssr_resource_t *mvtssr_new_resource_glyphs(const char *urltpl,
                                               const char *fontStack,
@@ -404,6 +409,8 @@ MVTSSRAPICALL
 mvtssr_resource_t *mvtssr_new_resource_image(const char *url);
 MVTSSRAPICALL void mvtssr_resource_free(mvtssr_resource_t *r);
 MVTSSRAPICALL uint8_t mvtssr_resource_get_kind(mvtssr_resource_t *r);
+MVTSSRAPICALL void mvtssr_resource_set_usage(mvtssr_resource_t *r, _Bool usage);
+MVTSSRAPICALL _Bool mvtssr_resource_get_usage(mvtssr_resource_t *r);
 
 MVTSSRAPICALL
 mvtssr_premultiplied_image_t *mvtssr_empty_premultiplied_image();

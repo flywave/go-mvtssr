@@ -127,7 +127,7 @@ func (t *MapSnapshotterResult) free() {
 }
 
 func NewMapSnapshotterResult() *MapSnapshotterResult {
-	ret := &MapSnapshotterResult{m: nil}
+	ret := &MapSnapshotterResult{m: nil, resultchan: make(chan interface{})}
 	ret.m = C.mvtssr_new_map_snapshotter_result(unsafe.Pointer(ret))
 	runtime.SetFinalizer(ret, (*MapSnapshotterResult).free)
 	return ret

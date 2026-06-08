@@ -44,5 +44,5 @@ func (t *ResourceOptions) SetAssetPath(path string) {
 }
 
 func (t *ResourceOptions) SetMaximumCacheSize(size uint64) {
-	C.mvtssr_resource_options_set_maximum_cache_size(t.m, C.ulong(size))
+	C.mvtssr_resource_options_set_maximum_cache_size(t.m, C.uint64_t(size))
 }

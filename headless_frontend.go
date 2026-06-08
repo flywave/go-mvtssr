@@ -20,7 +20,7 @@ func (t *HeadlessFrontend) free() {
 
 func NewHeadlessFrontend(si *Size, pixelRatio float32) *HeadlessFrontend {
 	ret := &HeadlessFrontend{m: C.mvtssr_new_headless_frontend(si.m, C.float(pixelRatio))}
-	runtime.SetFinalizer(ret, (*FileSourceFactory).free)
+	runtime.SetFinalizer(ret, (*HeadlessFrontend).free)
 	return ret
 }
 

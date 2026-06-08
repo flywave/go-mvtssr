@@ -49,6 +49,13 @@ func (t *FileSourceResponse) free() {
 }
 
 func NewFileSourceResponse(data []byte) *FileSourceResponse {
+	if len(data) == 0 {
+		empty := C.CString("")
+		defer C.free(unsafe.Pointer(empty))
+		ret := &FileSourceResponse{m: C.mvtssr_new_file_source_response(empty, 0)}
+		runtime.SetFinalizer(ret, (*FileSourceResponse).free)
+		return ret
+	}
 	ret := &FileSourceResponse{m: C.mvtssr_new_file_source_response((*C.char)(unsafe.Pointer(&data[0])), C.size_t(len(data)))}
 	runtime.SetFinalizer(ret, (*FileSourceResponse).free)
 	return ret

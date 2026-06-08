@@ -42,7 +42,7 @@ IF(APPLE)
   else()
     SET(FLYWAVE_LIBRARY_OUTPUT_PATH "${FLYWAVE_BASE_INSTALL_DIR}/darwin")
   endif()
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++14")
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wno-c++11-narrowing -Wno-bitwise-instead-of-logical")
 ELSEIF(WIN32)
 SET(FLYWAVE_LIBRARY_OUTPUT_PATH "${FLYWAVE_BASE_INSTALL_DIR}/windows")
 ELSE()
@@ -53,8 +53,7 @@ MAKE_DIRECTORY(${FLYWAVE_LIBRARY_OUTPUT_PATH})
 SET(FLYWAVE_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}")
 SET(FLYWAVE_LIBRARY_DIRS "")
 
-IF ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
-# libuv
+# libuv — needed on all platforms
 IF(NOT LIBUV_INCLUDE)
   ADD_SUBDIRECTORY("${CMAKE_CURRENT_SOURCE_DIR}/external/libuv")
   
@@ -62,8 +61,6 @@ IF(NOT LIBUV_INCLUDE)
   LIST(APPEND FLYWAVE_LIBRARY_DIRS "${CMAKE_CURRENT_BINARY_DIR}/external/libuv/")
   LIST(APPEND FLYWAVE_LIBRARY_DEPES "uv")
   SET(LIBUV_INCLUDE YES)
-ENDIF()
-
 ENDIF()
 
 # libjpeg
@@ -95,8 +92,30 @@ IF(NOT ZLIB_INCLUDE)
   SET(ZLIB_INCLUDE YES)
 ENDIF()
 
+# EGL headless backend — on Linux: replaces GLX/X11; on Windows: always EGL via ANGLE
+OPTION(FLYWAVE_WITH_EGL "Build with EGL/GLESv2 headless backend (Linux replaces GLX/X11; Windows always uses ANGLE)" OFF)
+
+# ANGLE (Windows EGL/GLESv2 implementation via Direct3D)
+IF(WIN32)
+  SET(MBGL_USE_GLES2 ON CACHE BOOL "Use GLES2 for headless rendering" FORCE)
+  ADD_SUBDIRECTORY("${CMAKE_CURRENT_SOURCE_DIR}/external/angle")
+ENDIF()
+
+# Boost (headers-only, used by mbgln annotation geometry)
+FIND_PACKAGE(Boost QUIET)
+IF(Boost_FOUND)
+  INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
+ENDIF()
+
 # mbgl-core
 IF(NOT MBGLC_INCLUDE)
+  IF(FLYWAVE_WITH_EGL AND NOT WIN32)
+    SET(MBGL_USE_GLES2 ON CACHE BOOL "Use GLES2 for headless rendering" FORCE)
+  ENDIF()
+  # Suppress mbgln's -Werror which breaks with newer compilers
+  SET(MBGL_WITH_WERROR OFF CACHE BOOL "Make warnings into errors" FORCE)
+  # Enable public build (HTTP file source on macOS)
+  SET(MBGL_PUBLIC_BUILD ON CACHE BOOL "Enable HTTP file source" FORCE)
   ADD_SUBDIRECTORY("${CMAKE_CURRENT_SOURCE_DIR}/external/mbgln")
   
   LIST(APPEND FLYWAVE_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/external/mbgln/include")
@@ -126,6 +145,17 @@ foreach(LIBDIR ${FLYWAVE_LIBRARY_DIRS})
         FILES_MATCHING PATTERN "*.a"
         )
   endforeach()
+
+IF(WIN32)
+  foreach(LIBDIR ${FLYWAVE_LIBRARY_DIRS})
+    INSTALL(
+          DIRECTORY ${LIBDIR}
+          DESTINATION ${FLYWAVE_LIBRARY_OUTPUT_PATH}
+          USE_SOURCE_PERMISSIONS FILE_PERMISSIONS
+          FILES_MATCHING PATTERN "*.lib"
+          )
+    endforeach()
+ENDIF()
 
 INSTALL(
     DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src/"

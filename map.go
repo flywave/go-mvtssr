@@ -109,3 +109,7 @@ func (t *Map) GetDebug() MapDebugOptions {
 func (t *Map) TriggerRepaint() {
 	C.mvtssr_map_trigger_repaint(t.m)
 }
+
+func (t *Map) IsFullyLoaded() bool {
+	return bool(C.mvtssr_map_is_fully_loaded(t.m))
+}
